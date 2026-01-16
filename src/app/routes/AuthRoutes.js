@@ -26,6 +26,15 @@ const loginSchema = {
     password: "string"
 };
 
+// Seccion nueva: Agregamos firstName y lastName al validador
+const registerSchema = {
+    email: "string",
+    password: "string",
+    firstName: "string",
+    lastName: "string",
+    role: "string"
+};
+
 // 3. Definición de Rutas
 
 /**
@@ -36,6 +45,9 @@ const loginSchema = {
  * 3. AuthController.login: Ejecuta la lógica de autenticación.
  */
 router.post("/login", Insulator(loginSchema), AuthController.login);
+
+// Conectamos al registro
+router.post("/register", Insulator(registerSchema), AuthController.register);
 
 /**
  * Endpoint: POST /auth/register
