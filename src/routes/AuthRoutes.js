@@ -1,7 +1,7 @@
 /**
  * ------------------------------------------------------------------
  * Archivo: AuthRoutes.js
- * Ubicación: src/app/routes/AuthRoutes.js
+ * Ubicación: src/routes/AuthRoutes.js
  * Descripción: Definición de las rutas del módulo de Autenticación.
  * Aquí se mapean las URLs (endpoints) a sus respectivos controladores
  * y se aplican validaciones previas de datos.

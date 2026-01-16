@@ -1,7 +1,7 @@
 /**
  * ------------------------------------------------------------------
  * Archivo: AuthController.js
- * Ubicación: src/app/controllers/AuthController.js
+ * Ubicación: src/controllers/AuthController.js
  * Descripción: Controlador encargado de la lógica de negocio para la
  * autenticación. Orquesta la verificación de credenciales con Supabase
  * y la emisión de tokens JWT propios usando el módulo Coherer.
@@ -9,7 +9,7 @@
  */
 
 import { Coherer } from 'nicola-framework';
-import { supabase } from '../../services/SupabaseClient.js';
+import { supabase } from '../services/SupabaseClient.js';
 
 export default class AuthController {
 
