@@ -8,7 +8,7 @@
 
 import Nicola, { Regulator } from "nicola-framework";
 import AuthRoutes from "./src/routes/AuthRoutes.js";
-
+import chatRoutes from "./src/routes/chatRoutes.js";
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
 // Esto debe hacerse antes de inicializar cualquier componente que requiera secretos.
@@ -34,6 +34,10 @@ app.get("/", (req, res) => {
 
 // 5. Arranque del Servidor
 // Ponemos al servidor a escuchar peticiones en el puerto 3000.
-app.listen(3000, () => {
-    console.log('Servidor corriendo en el puerto 3000');
-});
+
+
+app.use('/ai', chatRoutes)
+
+app.listen(3000, () =>{
+    console.log('Servidor corriendo en el puerto 3000')
+})
