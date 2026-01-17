@@ -4,7 +4,7 @@ import getModel from "../shemas/chatBrief.shemaIA.js";
 import Brief from "../model/Brief.model.js";
 import { VertexAI } from "@google-cloud/vertexai";
 import { Regulator, Dynamo } from "nicola-framework";
-
+import { brief_DB } from "./Brief_BD_save.js";
 
 const brief = {
 nombre_camapaing: "",
@@ -26,16 +26,8 @@ const model = getModel('gemini-2.5-flash')
 async function handleChat(req, res) {
   const {sessionID, userMessage} = req.body
 
-// await Dynamo.connect();
 
-// const verificacion_sesion = await User.where("idBrief", sessionID).get();
 
-// if(verificacion_sesion){
-// sessionID = verificacion_sesion.idBrief
-// }else{
-//   const created = await User.create({});
-// }
-// await Dynamo.disconnect();
 
   if(!conversations.has(sessionID)){
     conversations.set(sessionID, {
@@ -69,18 +61,11 @@ async function handleChat(req, res) {
     })
   }
 
-// await Dynamo.connect();
-// const briefID = await brief.all().orderBy("idBrief", "DESC").limit(1);
-
-// let datos = cleanAndParse(candidate.content.parts.text)
-
-// await User.where("idBrief", briefID).update({ ContentType: datos.ContentType});
-
-// await Dynamo.disconnect();
 
   session.message.push(candidate.content)
   let jsonData = cleanAndParse(candidate.content.parts[0].text)
-  console.log(jsonData)
+
+  registrarConFetch(jsonData)
   
 
   res.json({
@@ -104,9 +89,22 @@ function cleanAndParse(text) {
         
         return JSON.parse(cleanText);
     } catch (error) {
-        console.error("Error al parsear el JSON:", error);
+        console.error("Error al parsear la campaña:", error);
         return null;
     }
 }
+
+async function registrarConFetch(data, idCampaing = null) {
+  const response = await fetch('http://localhost:3000/ai/createCampaing', {
+    method: 'POST',
+    headers: {
+
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({data, idCampaing: "id"})
+  })
+}
+
 
 export  default handleChat;
