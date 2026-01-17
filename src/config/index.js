@@ -1,5 +1,7 @@
-require('dotenv').config();
-const path = require('path');
+import dotenv from 'dotenv'
+dotenv.config()
+
+import path from 'path';
 const requiredEnvVars = [
   'GOOGLE_APPLICATION_CREDENTIALS',
   'GCP_PROJECT_ID',
@@ -10,7 +12,7 @@ requiredEnvVars.forEach(varName => {
     throw new Error(`Falta variable de entorno requerida: ${varName}`);
   }
 });
-module.exports = {
+const config = {
   gcp: {
     projectId: process.env.GOOGLE_PROJECT_ID,
     location: process.env.GOOGLE_LOCATION || 'us-central1',
@@ -41,3 +43,6 @@ module.exports = {
     jwtSecret: process.env.JWT_SECRET
   }
 };
+
+
+export default config

@@ -1,10 +1,7 @@
-import preductionServiceClient from "@google-cloud/aiplatform";
-
-
-const { PredictionServiceClient } = require("@google-cloud/aiplatform").v1;
-const { helpers } = require("@google-cloud/aiplatform");
-const { Storage } = require("@google-cloud/storage");
-const config = require(" .. / .. /config");
+import PredictionServiceClient from "@google-cloud/aiplatform";
+import { helpers } from "@google-cloud/aiplatform";
+import { Storage } from "@google-cloud/storage";
+import config from "../config/index.js";
 
 class vertexAdapter {
   constructor() {
