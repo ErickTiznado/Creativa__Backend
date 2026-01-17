@@ -1,5 +1,4 @@
-import PredictionServiceClient from "@google-cloud/aiplatform";
-import { helpers } from "@google-cloud/aiplatform";
+import { PredictionServiceClient, helpers } from "@google-cloud/aiplatform";
 import { Storage } from "@google-cloud/storage";
 import config from "../config/index.js";
 
@@ -7,7 +6,7 @@ class vertexAdapter {
   constructor() {
     this.predictionClient = new PredictionServiceClient({
       apiEndpoint: `${config.gcp.location}-aiplatform.googleapis.com`,
-      keyFilename: config.gcp.keyFilename,
+      keyFilename: config.gcp.keyFilePath,
     });
     //cliente de almacenamiento en la nuve
     this.Storage = new Storage({
@@ -15,7 +14,7 @@ class vertexAdapter {
       keyFilename: config.gcp.keyFilePath,
     });
     //referencias al bucket a utilizar
-    this.bucket = this.Storage.bucket(config.gcp.bucketName);
+    this.bucket = this.Storage.bucket(config.gcp.storage.bucketName);
     this.projectId = config.gcp.projectId;
     this.location = config.gcp.location;
   }
