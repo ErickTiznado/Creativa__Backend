@@ -24,7 +24,7 @@ const conversations = new Map();
 const model = getModel('gemini-2.5-flash')
 
 async function handleChat(req, res) {
-  const {sessionID, userMessage} = req.body
+  const {sessionID, userMessage, idCampaing} = req.body
 
 
 
@@ -65,7 +65,8 @@ async function handleChat(req, res) {
   session.message.push(candidate.content)
   let jsonData = cleanAndParse(candidate.content.parts[0].text)
 
-  registrarConFetch(jsonData)
+  registrarConFetch(jsonData,idCampaing)
+  
   
 
   res.json({
@@ -75,7 +76,7 @@ async function handleChat(req, res) {
     missingFields: dataValidator(session.data)
   });
 
-
+  return jsonData
 }
 function dataValidator(data) {
   return Object.keys(brief).filter(
@@ -95,14 +96,14 @@ function cleanAndParse(text) {
 }
 
 async function registrarConFetch(data, idCampaing = null) {
-  const response = await fetch('http://localhost:3000/ai/createCampaing', {
+  
+  const response = await fetch('http://localhost:3000/ai/updateCampaing', {
     method: 'POST',
     headers: {
-
       'Content-Type': 'application/json',
       'Prefer': 'return=representation'
     },
-    body: JSON.stringify({data, idCampaing: "id"})
+    body: JSON.stringify({data: data, idCampaing: idCampaing})
   })
 }
 

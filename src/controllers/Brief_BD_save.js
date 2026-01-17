@@ -1,43 +1,17 @@
 import { supabase } from "../services/supaBaseClient.js";
 
 export class brief_DB {
-  static async Registrar_Brief(req, res) {
+  static async Create_Campaing(req, res) {
     try {
-      const { data, idCampaing } = req.body;
-      const date = new Date();
-
-      if (idCampaing != null) {
-        const { error } = await supabase
-          .schema("public")
-          .from("campaigns")
-          .select("id")
-          .eq("id", idCampaing)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Error al consultar:", error);
-        } else if (data) {
-          this.updateDataBrief();
-          return;
-        }
-      }
-
-      const codigoUnico =
-        date.getFullYear().toString() +
-        String(date.getMonth() + 1).padStart(2, "0") +
-        String(date.getDate()).padStart(2, "0") +
-        String(date.getHours()).padStart(2, "0") +
-        String(date.getMinutes()).padStart(2, "0") +
-        String(date.getSeconds()).padStart(2, "0");
+      const { user_id } = req.body;
 
       const { error: Error } = await supabase
         .schema("public")
         .from("campaigns")
         .insert({
-          id: codigoUnico,
-          user_id: 100,
-          status: "Activo",
-          brief_data: data,
+          user_id: user_id,
+          status: "new",
+          brief_data: {},
         });
 
       if (Error) {
@@ -63,22 +37,27 @@ export class brief_DB {
       res.json({ error: "Error interno del servidor" });
     }
   }
+  static async updateDataBrief(req, res) {
+    console.log("inicio");
+    const { data, error, status } = await supabase
+    .from('campaigns')
+    .update({brief_data: req.body.data})
+    .eq('id', req.body.idCampaing)
+    .select();
 
-  static async updateDataBrief(res, req) {
-    const { data, id } = req.body;
+  if (error) {
+    return res.status(400).json(error);
+  }
 
-    try {
-      const { error: dbError } = await supabase
-        .schema("public")
-        .from("campaigns")
-        .update({ brief_data: data })
-        .eq("id", id);
+  if (data.length === 0) {
+    return res.status(404).json({ mensaje: "No se encontró el registro" });
+  }
 
-      if (dbError) {
-        console.error("Error al crear el brief", dbError);
-        res.statusCode = 500;
-        return res.json({ error: "Error al crear el brief." });
-      }
-    } catch (error) {}
+  return res.status(200).json(data); 
+
+} catch (err) {
+  console.error("Error de servidor:", err);
+  return res.status(500).send("Error interno");
+
   }
 }
