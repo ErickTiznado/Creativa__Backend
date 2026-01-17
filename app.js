@@ -9,6 +9,9 @@
 import Nicola, { Regulator } from "nicola-framework";
 import AuthRoutes from "./src/routes/AuthRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
+import RagRoute from "./src/routes/rag.routes.js";
+
+
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
 // Esto debe hacerse antes de inicializar cualquier componente que requiera secretos.
@@ -25,7 +28,7 @@ const app = new Nicola();
  * POST http://localhost:3000/auth/login
  */
 app.use("/auth", AuthRoutes);
-
+app.use("/rag", RagRoute);
 // 4. Ruta Base (Health Check)
 // Endpoint sencillo para verificar que el servidor está encendido y respondiendo.
 app.get("/", (req, res) => {
