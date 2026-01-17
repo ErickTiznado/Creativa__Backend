@@ -1,10 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 import getModel from "../shemas/chatBrief.shemaIA.js";
-import Brief from "../model/Brief.model.js";
-import { VertexAI } from "@google-cloud/vertexai";
-import { Regulator, Dynamo } from "nicola-framework";
-import { brief_DB } from "./Brief_BD_save.js";
 
 const brief = {
 nombre_camapaing: "",
