@@ -1,7 +1,5 @@
 import { Remote } from "nicola-framework";
 import handleChat from "../controllers/BriefChatController.js";
-
-
 import { brief_DB } from "../controllers/Brief_BD_save.js";
 
 const RemoteRoute = new Remote()
