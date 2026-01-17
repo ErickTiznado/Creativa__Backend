@@ -61,7 +61,9 @@ async function handleChat(req, res) {
   session.message.push(candidate.content)
   let jsonData = cleanAndParse(candidate.content.parts[0].text)
 
-  registrarConFetch(jsonData,idCampaing)
+  const { responseMessage, ...jsonDB } = jsonData;
+
+  registrarConFetch(jsonDB,idCampaing)
   
   
 
@@ -91,7 +93,7 @@ function cleanAndParse(text) {
     }
 }
 
-async function registrarConFetch(data, idCampaing = null) {
+async function registrarConFetch(data, idCampaing) {
   
   const response = await fetch('http://localhost:3000/ai/updateCampaing', {
     method: 'POST',
