@@ -1,0 +1,60 @@
+import ChunkingService from "../services/chunkingService.js";
+import PdfService from "../services/pdfService.js";
+import VectorCore from "../services/VectorCore.js";
+import BrandManualVectorsModel from "../model/brand_manual_vectors.model.js";
+
+
+const ingestManual = async (req, res) => {
+    if(!req.files || !req.files.manual){
+        res.status(400)
+        res.end("No se ha proporcionado ningun archivo");
+        return;
+    }
+
+    const manual = await PdfService.extractTextFromPdf(req.files.manual.data);
+
+    if(!manual){
+        res.status(500)
+        res.end("Error al procesar el archivo PDF");
+        return;
+    }
+    let errorCount = 0;
+    const chunks = ChunkingService.chunkText(manual.fullText);
+
+    for(const c of chunks){
+        try{
+            const embedding =  await VectorCore.embed(c);
+
+            const vectorStr = JSON.stringify(embedding);
+
+            await BrandManualVectorsModel.create({
+                content_text: c,
+                metadata: JSON.stringify({
+                    source: req.files.manual.name,
+                    type: req.files.manual.type,
+                    pages: manual.totalPages,
+                    info: JSON.stringify(manual.info)
+                }),
+                embedding: vectorStr
+            });
+
+        }
+        catch(e){
+            console.error("Error al generar el embedding: ", e);
+            errorCount++;
+            continue;
+        }
+    }
+
+    res.status(200)
+    if(errorCount > 0){
+        res.end(`Proceso completado con ${errorCount} errores`);
+        return;
+    }
+    res.end("Proceso completado exitosamente");
+    return;
+}
+
+export {
+    ingestManual
+}
