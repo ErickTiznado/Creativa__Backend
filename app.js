@@ -1,8 +1,15 @@
 /**
  * ------------------------------------------------------------------
- * Archivo Principal: app.js
- * Descripción: Punto de entrada de la aplicación. Configura el servidor,
- * carga variables de entorno y monta los módulos de rutas.
+ * Archivo: app.js
+ * Ubicación: app.js
+ * Responsabilidad: Punto de entrada de la API. Carga entorno y monta rutas.
+ *
+ * Módulos montados:
+ * - /auth: autenticación
+ * - /ai: chat/brief
+ * - /rag: ingesta RAG (manuales)
+ *
+ * Nota: actualmente el servidor escucha en el puerto 3000 de forma fija.
  * ------------------------------------------------------------------
  */
 

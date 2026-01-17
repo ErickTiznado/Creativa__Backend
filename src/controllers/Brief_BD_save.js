@@ -1,6 +1,22 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: Brief_BD_save.js
+ * Ubicación: src/controllers/Brief_BD_save.js
+ * Responsabilidad: Crear/actualizar campañas (brief) en Supabase.
+ *
+ * Notas:
+ * - Espera `{ data, idCampaing }` en el body.
+ * - Este módulo asume una tabla `campaigns` en schema `public`.
+ * - La persistencia depende de un cliente de Supabase exportado por el proyecto.
+ * ------------------------------------------------------------------
+ */
+
 import { supabase } from "../services/supaBaseClient.js";
 
 export class brief_DB {
+  /**
+   * Crea una campaña o intenta actualizar si `idCampaing` existe.
+   */
   static async Registrar_Brief(req, res) {
     try {
       const { data, idCampaing } = req.body;
@@ -64,6 +80,9 @@ export class brief_DB {
     }
   }
 
+  /**
+   * Actualiza `brief_data` para una campaña existente.
+   */
   static async updateDataBrief(res, req) {
     const { data, id } = req.body;
 
