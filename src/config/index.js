@@ -1,8 +1,7 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
 import path from 'path';
-import { Regulator } from 'nicola-framework';
-
-Regulator.load();
-
 const requiredEnvVars = [
   'GOOGLE_APPLICATION_CREDENTIALS',
   'GCP_PROJECT_ID',
@@ -14,7 +13,6 @@ requiredEnvVars.forEach(varName => {
     throw new Error(`Falta variable de entorno requerida: ${varName}`);
   }
 });
-
 const config = {
   gcp: {
     projectId: process.env.GOOGLE_PROJECT_ID,
@@ -43,5 +41,5 @@ const config = {
   }
 };
 
-export default config;
-export { config };
+
+export default config
