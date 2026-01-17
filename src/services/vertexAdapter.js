@@ -1,3 +1,15 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: vertexAdapter.js
+ * Ubicación: src/services/vertexAdapter.js
+ * Responsabilidad: Wrapper de alto nivel para consumir Vertex AI (texto, streaming, imagen)
+ * y persistir imágenes en Cloud Storage.
+ *
+ * Nota: este archivo mezcla varios estilos/nombres (typos y nombres de params).
+ * Los comentarios aquí describen la intención para facilitar refactors futuros.
+ * ------------------------------------------------------------------
+ */
+
 import { PredictionServiceClient, helpers } from "@google-cloud/aiplatform";
 import { Storage } from "@google-cloud/storage";
 import config from "../config/index.js";
@@ -18,7 +30,9 @@ class vertexAdapter {
     this.projectId = config.gcp.projectId;
     this.location = config.gcp.location;
   }
-  //funcion de generacion de texto
+  /**
+   * Generación de texto (Gemini) vía PredictionService.
+   */
   async generateText(prompt, opcions = {}) {
     try {
       const endPoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/geminiPro`;
@@ -64,6 +78,9 @@ class vertexAdapter {
       throw new Error("No se recibió respuesta del modelo");
     }
   }
+  /**
+   * Generación de texto en streaming. Llama `onChunk` por fragmento.
+   */
   async generateTextStream(prompt, onChunk, opcions = {}) {
     try {
       const endpoint = `projects/${this.projectld}/locations/${this.location}/publishers/google/models/${config.gcp.models.geminiPro}:streamGenerateContent'`;
@@ -97,6 +114,9 @@ class vertexAdapter {
       console.error("Error Stream: ", error);
     }
   }
+  /**
+   * Generación de imagen (Imagen 2) y subida a Cloud Storage.
+   */
   async imageGeneration(prompt, opcions = {}) {
     try {
       const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.imagen2}`;
@@ -147,6 +167,9 @@ class vertexAdapter {
       console.error("Error en la generacion de imagenes: ", error);
     }
   }
+  /**
+   * Edición de imagen (Imagen 2). Requiere URL de imagen base y máscara.
+   */
   async editImage(baseImageURL, promt, opcions = {}) {
     try {
       const baseImageBase64 = await this.downloadImageAsBase64(baseImageUrl);
@@ -198,6 +221,9 @@ class vertexAdapter {
       console.error("Error en la edicion de imagenes: ", error);
     }
   }
+  /**
+   * Guarda un PNG (base64) en Cloud Storage y devuelve la URL pública.
+   */
   async uploadImageToStorage(base64Image, filename, folder) {
     try {
       const buffer = Buffer.from(base64Image, "base64");
@@ -222,6 +248,9 @@ class vertexAdapter {
     }
   }
 
+  /**
+   * Descarga una imagen remota y la convierte a base64.
+   */
   async downloadImageAsBase64(imageUrl) {
     try {
       const axios = require("axios");
@@ -235,6 +264,9 @@ class vertexAdapter {
     }
   }
 
+  /**
+   * Analiza una imagen con un prompt (Gemini Vision).
+   */
   async analyzelimage(imageUrl, question = 'Describe la imagen') {
     try {
         const imageBae64 = await this.downloadImageAsBase64(imageUrl)

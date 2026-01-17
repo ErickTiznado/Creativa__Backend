@@ -1,3 +1,16 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: chatBrief.shemaIA.js
+ * Ubicación: src/shemas/chatBrief.shemaIA.js
+ * Responsabilidad: Configurar el modelo generativo de Vertex AI para el flujo de brief.
+ *
+ * Exporta: `getModel(modelName)` que retorna un GenerativeModel configurado.
+ * Notas:
+ * - Usa function declarations para estructurar la recolección de datos.
+ * - Requiere variables de entorno de Google Cloud (ver docs/ENV.md).
+ * ------------------------------------------------------------------
+ */
+
 import { VertexAI } from "@google-cloud/vertexai";
 
 const vertexInstance = new VertexAI({

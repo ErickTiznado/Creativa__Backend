@@ -1,3 +1,13 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: index.js
+ * Ubicación: src/config/index.js
+ * Responsabilidad: Configuración central del proyecto (GCP, Supabase, servidor).
+ *
+ * Este módulo aplica "fail fast": valida variables requeridas al inicio.
+ * ------------------------------------------------------------------
+ */
+
 import path from 'path';
 import { Regulator } from 'nicola-framework';
 Regulator.load();

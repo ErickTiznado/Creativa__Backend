@@ -1,10 +1,9 @@
 /**
  * ------------------------------------------------------------------
  * Archivo: AuthController.js
- * Ubicación: src/app/controllers/AuthController.js
- * Descripción: Controlador encargado de la lógica de negocio para la
- * autenticación. Orquesta la verificación de credenciales con Supabase
- * y la emisión de tokens JWT propios usando el módulo Coherer.
+ * Ubicación: src/controllers/AuthController.js
+ * Descripción: Controlador de autenticación. Valida credenciales con Supabase
+ * y emite un JWT propio usando Coherer (firmado con `NICOLA_SECRET`).
  * ------------------------------------------------------------------
  */
 

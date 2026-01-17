@@ -1,9 +1,9 @@
 /**
  * ------------------------------------------------------------------
  * Archivo: AuthMiddleware.js
- * Ubicación: src/app/middlewares/AuthMiddleware.js
- * Descripción: Middleware de seguridad. Intercepta las solicitudes HTTP
- * a rutas protegidas para verificar la existencia y validez del Token JWT.
+ * Ubicación: src/middlewares/AuthMiddleware.js
+ * Descripción: Middleware de seguridad. Intercepta solicitudes HTTP
+ * a rutas protegidas para verificar la existencia y validez del token JWT.
  * Si el token es válido, permite el acceso; si no, responde con error 401.
  * ------------------------------------------------------------------
  */

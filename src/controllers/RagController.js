@@ -1,10 +1,32 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: RagController.js
+ * Ubicación: src/controllers/RagController.js
+ * Responsabilidad: Ingesta RAG de PDFs (manual de marca).
+ *
+ * Flujo:
+ * 1) Validación de archivo `manual` en multipart
+ * 2) Extracción de texto (PdfService)
+ * 3) Chunking (ChunkingService)
+ * 4) Embeddings (VectorCore)
+ * 5) Persistencia (BrandManualVectorsModel)
+ *
+ * Notas de mantenibilidad:
+ * - Requiere middleware de subida de archivos que exponga `req.files`.
+ * - Import paths con casing incorrecto pueden fallar en Linux.
+ * ------------------------------------------------------------------
+ */
+
 import ChunkingService from "../services/chunkingService.js";
 import PdfService from "../services/pdfService.js";
 import VectorCore from "../services/VectorCore.js";
 import BrandManualVectorsModel from "../model/brand_manual_vectors.model.js";
 
-
 const ingestManual = async (req, res) => {
+    /**
+     * Endpoint: POST /rag/ingestManual
+     * Espera `multipart/form-data` con `manual`.
+     */
     if(!req.files || !req.files.manual){
         res.status(400)
         res.end("No se ha proporcionado ningun archivo");
