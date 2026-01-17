@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
-dotenv.config();
+import { Regulator } from "nicola-framework";
+Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
 
 const brief = {
