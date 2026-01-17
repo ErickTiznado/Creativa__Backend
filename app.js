@@ -7,7 +7,7 @@
  */
 
 import Nicola, { Regulator } from "nicola-framework";
-import AuthRoutes from "./src/app/routes/AuthRoutes.js";
+import AuthRoutes from "./src/routes/AuthRoutes.js";
 
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
