@@ -13,7 +13,7 @@
  * ------------------------------------------------------------------
  */
 
-import Nicola, { Regulator } from "nicola-framework";
+import Nicola, { Dynamo, Regulator } from "nicola-framework";
 import AuthRoutes from "./src/routes/AuthRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
 import RagRoute from "./src/routes/rag.routes.js";
@@ -24,6 +24,8 @@ import RagRoute from "./src/routes/rag.routes.js";
 // Esto debe hacerse antes de inicializar cualquier componente que requiera secretos.
 Regulator.load();
 
+
+Dynamo.connect();
 // 2. Inicialización del Servidor
 // Se crea la instancia principal del framework Nicola.
 const app = new Nicola();

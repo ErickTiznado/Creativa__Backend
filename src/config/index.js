@@ -41,15 +41,14 @@ const config = {
   },
   supabase: {
     url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
+    anonKey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY,
     serviceKey: process.env.SUPABASE_SERVICE_KEY
   },
   server: {
     port: parseInt(process.env.PORT, 10) || 3000,
     nodeEnv: process.env.NODE_ENV || 'development',
-    jwtSecret: process.env.JWT_SECRET
+    jwtSecret: process.env.NICOLA_SECRET
   }
 };
-
 
 export default config
