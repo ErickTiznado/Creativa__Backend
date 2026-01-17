@@ -11,7 +11,7 @@
  * ------------------------------------------------------------------
  */
 
-import { supabase } from "../services/supaBaseClient.js";
+import { supabase } from "../services/SupabaseClient.js";
 
 export class brief_DB {
   /**

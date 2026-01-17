@@ -17,8 +17,8 @@
  * ------------------------------------------------------------------
  */
 
-import ChunkingService from "../services/chunkingService.js";
-import PdfService from "../services/pdfService.js";
+import { chunkText } from "../services/ChunkingService.js";
+import { extractTextFromPdf } from "../services/PdfService.js";
 import VectorCore from "../services/VectorCore.js";
 import BrandManualVectorsModel from "../model/brand_manual_vectors.model.js";
 
@@ -33,7 +33,7 @@ const ingestManual = async (req, res) => {
         return;
     }
 
-    const manual = await PdfService.extractTextFromPdf(req.files.manual.data);
+    const manual = await extractTextFromPdf(req.files.manual.data);
 
     if(!manual){
         res.status(500)
@@ -41,7 +41,7 @@ const ingestManual = async (req, res) => {
         return;
     }
     let errorCount = 0;
-    const chunks = ChunkingService.chunkText(manual.fullText);
+    const chunks = chunkText(manual.fullText);
 
     for(const c of chunks){
         try{

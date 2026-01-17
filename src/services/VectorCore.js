@@ -10,7 +10,7 @@
 
 import { VertexAI } from "@google-cloud/vertexai";
 
-import config from "../config";
+import config from "../config/index.js";
 
 const vertexAI = new VertexAI({
   projectId: config.gcp.projectId,

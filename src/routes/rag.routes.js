@@ -9,7 +9,7 @@
  * ------------------------------------------------------------------
  */
 
-import { ingestManual } from "../controllers/RagController";
+import { ingestManual } from "../controllers/RagController.js";
 import { Remote } from "nicola-framework";
 
 const RagRoute = new Remote();
