@@ -269,4 +269,4 @@ class vertexAdapter {
 }
 }
 
-module.exports = new VertexAdapter();
+export default vertexAdapter;
