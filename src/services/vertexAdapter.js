@@ -12,6 +12,7 @@
 
 import { PredictionServiceClient, helpers } from "@google-cloud/aiplatform";
 import { Storage } from "@google-cloud/storage";
+import axios from "axios";
 import config from "../config/index.js";
 
 class vertexAdapter {
@@ -253,7 +254,6 @@ class vertexAdapter {
    */
   async downloadImageAsBase64(imageUrl) {
     try {
-      const axios = require("axios");
       const response = await axios.get(imageUrl, {
         responseType: "arraybuffer",
       });
