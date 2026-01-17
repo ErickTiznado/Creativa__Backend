@@ -1,5 +1,5 @@
 import Nicola, { Regulator } from "nicola-framework";
-import chatRoutes from "./routes/chatRoutes.js";
+import chatRoutes from "./src/routes/chatRoutes.js";
 
 Regulator.load()
 
