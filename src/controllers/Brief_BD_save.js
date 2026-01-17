@@ -23,13 +23,6 @@ export class brief_DB {
       res.statusCode = 201;
       res.json({
         message: "Brief creado correctamente",
-        campaigns: {
-          id,
-          created_at,
-          user_id,
-          status,
-          brief_data,
-        },
       });
     } catch (error) {
       console.error("Error crítico:", error);
@@ -37,27 +30,25 @@ export class brief_DB {
       res.json({ error: "Error interno del servidor" });
     }
   }
+
+
+
   static async updateDataBrief(req, res) {
-    console.log("inicio");
-    const { data, error, status } = await supabase
+    try {
+    const { data, error } = await supabase
     .from('campaigns')
-    .update({brief_data: req.body.data})
-    .eq('id', req.body.idCampaing)
-    .select();
+    .update({brief_data: req.body.data })
+    .eq('id', req.body.idCampaing);
 
   if (error) {
-    return res.status(400).json(error);
+    console.error("Error de Supabase:", error);
+    return 
   }
-
-  if (data.length === 0) {
-    return res.status(404).json({ mensaje: "No se encontró el registro" });
-  }
-
-  return res.status(200).json(data); 
-
+  res.statusCode = 200;
+  return res.json({ message : "Modificación de datos de campaña exitosa." });
 } catch (err) {
   console.error("Error de servidor:", err);
   return res.status(500).send("Error interno");
-
+}
   }
 }
