@@ -1,10 +1,9 @@
-import dotenv from 'dotenv'
-dotenv.config()
-
 import path from 'path';
+import { Regulator } from 'nicola-framework';
+Regulator.load();
 const requiredEnvVars = [
   'GOOGLE_APPLICATION_CREDENTIALS',
-  'GCP_PROJECT_ID',
+  'GOOGLE_PROJECT_ID',
   'GCS_BUCKET_NAME'
 ];
 
