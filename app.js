@@ -8,25 +8,23 @@
 
 import Nicola, { Regulator } from "nicola-framework";
 import chatRoutes from "./src/routes/chatRoutes.js";
+import AuthRoutes from "./src/routes/AuthRoutes.js";
 
 Regulator.load()
 
 const app = new Nicola()
+
 app.use('/ai', chatRoutes)
 
-app.listen(3000, () =>{
-    console.log('Servidor corriendo en el puerto 3000')
-})
-import AuthRoutes from "./src/routes/AuthRoutes.js";
+
+
 
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
 // Esto debe hacerse antes de inicializar cualquier componente que requiera secretos.
-Regulator.load();
 
 // 2. Inicialización del Servidor
 // Se crea la instancia principal del framework Nicola.
-const app = new Nicola();
 
 /**
  * 3. Montaje de Módulos (Rutas)
