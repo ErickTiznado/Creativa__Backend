@@ -26,7 +26,7 @@ sentences = normalizedText.split(". ")
 for(const s of sentences){
     const newS = s + ". "
     if(actualChunk.length + newS.length > CHUNK_SIZE){
-        finalChunks.push(actualChunk).trim()
+        finalChunks.push(actualChunk.trim())
         actualChunk = newS
     }
     else{
@@ -34,7 +34,7 @@ for(const s of sentences){
     }
 }
 if(actualChunk.length > 0){
-    finalChunks.push(actualChunk).trim()
+    finalChunks.push(actualChunk.trim())
 }
 
 return finalChunks;

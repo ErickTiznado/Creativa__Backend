@@ -2,12 +2,21 @@
  * ------------------------------------------------------------------
  * Archivo: BriefChatController.js
  * Ubicación: src/controllers/BriefChatController.js
- * Responsabilidad: Orquestar el chat con Vertex AI para recolectar un brief.
+ * Responsabilidad: Orquestar el chat conversacional con Vertex AI (Gemini) para 
+ * recolectar datos del brief de una campaña publicitaria.
+ *
+ * Flujo de operación:
+ * 1. Recibe mensaje del usuario con sessionID único.
+ * 2. Mantiene historial de conversación en memoria (Map).
+ * 3. Envía contexto completo a Gemini para generar respuesta.
+ * 4. Si el modelo llama a function 'Campaing_Brief', persiste los datos.
+ * 5. Retorna la respuesta del asistente al cliente.
  *
  * Notas de mantenibilidad:
- * - Mantiene estado de conversación en memoria (Map). Reiniciar el proceso borra sesiones.
- * - El modelo puede devolver function-calls: se fusionan en `session.data`.
- * - Este controlador también dispara una persistencia vía HTTP a /ai/createCampaing.
+ * - Las sesiones se pierden al reiniciar el servidor (estado en RAM).
+ * - El modelo está configurado con function declarations para estructurar datos.
+ * - La persistencia se hace vía HTTP interno a POST /ai/createCampaing.
+ * - Los datos del brief se definen en el objeto `brief` (esquema esperado).
  * ------------------------------------------------------------------
  */
 
@@ -15,6 +24,10 @@ import { Regulator } from "nicola-framework";
 Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
 
+/**
+ * Estructura del brief que el modelo debe completar.
+ * Estos campos se irán llenando durante la conversación.
+ */
 const brief = {
 nombre_camapaing: "",
  ContentType: "",
@@ -25,6 +38,13 @@ nombre_camapaing: "",
   
 }
 
+/**
+ * Almacén de conversaciones en memoria.
+ * Key: sessionID (string único por usuario/sesión)
+ * Value: { message: Array, data: Object }
+ * - message: historial de mensajes para contexto del modelo
+ * - data: campos del brief completados hasta el momento
+ */
 const conversations = new Map();
 
 
@@ -33,8 +53,15 @@ const conversations = new Map();
 const model = getModel('gemini-2.5-flash')
 
 /**
- * Handler principal del chat.
- * Espera `sessionID` y `userMessage` en el body.
+ * Handler principal del endpoint POST /ai/chat.
+ * 
+ * @param {Object} req.body - { sessionID: string, userMessage: string }
+ * @returns {Object} - { response: string, data?: Object }
+ * 
+ * Descripción:
+ * Gestiona la conversación con el usuario. Si es la primera interacción de la sesión,
+ * crea un registro en `conversations`. Envía el historial completo a Gemini, procesa
+ * la respuesta (que puede incluir function calls), y persiste los datos si están completos.
  */
 async function handleChat(req, res) {
   const {sessionID, userMessage} = req.body
