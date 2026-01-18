@@ -1,3 +1,14 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: test-vertex-adapter.js
+ * Ubicación: src/test/test-vertex-adapter.js
+ * Responsabilidad: Smoke tests manuales para `vertexAdapter`.
+ *
+ * Nota: requiere configuración completa de GCP (credenciales + bucket).
+ * Ejecutar manualmente (si se agrega script): `node src/test/test-vertex-adapter.js`.
+ * ------------------------------------------------------------------
+ */
+
 import vertexAdapter from "../services/vertexAdapter.js";
 
 async function testVertexAdapter() {
