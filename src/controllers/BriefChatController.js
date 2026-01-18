@@ -1,3 +1,16 @@
+/**
+ * ------------------------------------------------------------------
+ * Archivo: BriefChatController.js
+ * Ubicación: src/controllers/BriefChatController.js
+ * Responsabilidad: Orquestar el chat con Vertex AI para recolectar un brief.
+ *
+ * Notas de mantenibilidad:
+ * - Mantiene estado de conversación en memoria (Map). Reiniciar el proceso borra sesiones.
+ * - El modelo puede devolver function-calls: se fusionan en `session.data`.
+ * - Este controlador también dispara una persistencia vía HTTP a /ai/createCampaing.
+ * ------------------------------------------------------------------
+ */
+
 import { Regulator } from "nicola-framework";
 Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
@@ -19,8 +32,12 @@ const conversations = new Map();
 
 const model = getModel('gemini-2.5-flash')
 
+/**
+ * Handler principal del chat.
+ * Espera `sessionID` y `userMessage` en el body.
+ */
 async function handleChat(req, res) {
-  const {sessionID, userMessage, idCampaing} = req.body
+  const {sessionID, userMessage} = req.body
 
 
 
@@ -61,10 +78,7 @@ async function handleChat(req, res) {
   session.message.push(candidate.content)
   let jsonData = cleanAndParse(candidate.content.parts[0].text)
 
-  const { responseMessage, ...jsonDB } = jsonData;
-
-  registrarConFetch(jsonDB,idCampaing)
-  
+  registrarConFetch(jsonData)
   
 
   res.json({
@@ -74,14 +88,22 @@ async function handleChat(req, res) {
     missingFields: dataValidator(session.data)
   });
 
-  return jsonData
+
 }
+
+/**
+ * Devuelve la lista de campos faltantes contra el esquema `brief`.
+ */
 function dataValidator(data) {
   return Object.keys(brief).filter(
     key => !data[key]
   );
 }
 
+/**
+ * Normaliza el texto que llega del modelo y trata de parsearlo como JSON.
+ * Si falla, devuelve null.
+ */
 function cleanAndParse(text) {
     try {
         const cleanText = text.replace(/```json|```/g, "").trim();
@@ -93,15 +115,19 @@ function cleanAndParse(text) {
     }
 }
 
-async function registrarConFetch(data, idCampaing) {
-  
-  const response = await fetch('http://localhost:3000/ai/updateCampaing', {
+/**
+ * Persistencia “best effort” hacia el endpoint interno `/ai/createCampaing`.
+ * Nota: requiere Node >= 18 para `fetch` global.
+ */
+async function registrarConFetch(data, idCampaing = null) {
+  const response = await fetch('http://localhost:3000/ai/createCampaing', {
     method: 'POST',
     headers: {
+
       'Content-Type': 'application/json',
       'Prefer': 'return=representation'
     },
-    body: JSON.stringify({data: data, idCampaing: idCampaing})
+    body: JSON.stringify({data, idCampaing: "id"})
   })
 }
 
