@@ -9,7 +9,7 @@
  */
 
 import { Coherer } from 'nicola-framework';
-import { supabase } from '../services/SupabaseClient.js';
+import { supabase } from '../services/supaBaseClient.js';
 
 export default class AuthController {
 
