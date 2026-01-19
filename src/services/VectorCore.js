@@ -26,15 +26,15 @@ class VectorCore {
      */
     static async embed(text) {
         const client = new PredictionServiceClient(clientOptions);
-        
+
         const endpoint = `projects/${config.gcp.projectId}/locations/${config.gcp.location}/publishers/google/models/${config.gcp.models.embedingModel}`;
-        
+
         // Construir la instancia con helpers.toValue
         const instance = helpers.toValue({
             content: text,
             task_type: 'RETRIEVAL_DOCUMENT'
         });
-        
+
         const request = {
             endpoint,
             instances: [instance]
@@ -54,6 +54,11 @@ class VectorCore {
 
         return embeddings;
     }
+
+
+
+
+
 }
 
 export default VectorCore;

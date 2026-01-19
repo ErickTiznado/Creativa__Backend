@@ -21,13 +21,15 @@ import { chunkText } from "../services/ChunkingService.js";
 import { extractTextFromPdf } from "../services/PdfService.js";
 import VectorCore from "../services/VectorCore.js";
 import BrandManualVectorsModel from "../model/brand_manual_vectors.model.js";
+import { magent } from 'nicola-framework'
+import { brand_manual_vectors } from "../services/QuerySearchServise.js";
 
 const ingestManual = async (req, res) => {
     /**
      * Endpoint: POST /rag/ingestManual
      * Espera `multipart/form-data` con `manual`.
      */
-    if(!req.files || !req.files.manual){
+    if (!req.files || !req.files.manual) {
         res.statusCode = 400
         res.end("No se ha proporcionado ningun archivo");
         return;
@@ -35,7 +37,7 @@ const ingestManual = async (req, res) => {
 
     const manual = await extractTextFromPdf(req.files.manual.data);
 
-    if(!manual){
+    if (!manual) {
         res.statusCode = 500
         res.end("Error al procesar el archivo PDF");
         return;
@@ -43,9 +45,9 @@ const ingestManual = async (req, res) => {
     let errorCount = 0;
     const chunks = chunkText(manual.fullText);
 
-    for(const c of chunks){
-        try{
-            const embedding =  await VectorCore.embed(c);
+    for (const c of chunks) {
+        try {
+            const embedding = await VectorCore.embed(c);
 
             const vectorStr = JSON.stringify(embedding);
 
@@ -61,15 +63,15 @@ const ingestManual = async (req, res) => {
             });
 
         }
-        catch(e){
+        catch (e) {
             console.error("Error al generar el embedding: ", e);
             errorCount++;
             continue;
         }
     }
 
-    res.statusCode= 200
-    if(errorCount > 0){
+    res.statusCode = 200
+    if (errorCount > 0) {
         res.end(`Proceso completado con ${errorCount} errores`);
         return;
     }
@@ -77,6 +79,44 @@ const ingestManual = async (req, res) => {
     return;
 }
 
+
+const querySearch = async (req, res) => {
+    const query = req.body.query;
+    const match_threshold = 0.7;
+    const match_count = 5;
+    if (query.length > 3) {
+        try {
+
+            const embedding = await VectorCore.embed(query)
+
+            const vectorStr = JSON.stringify(embedding)
+            const data = await brand_manual_vectors(vectorStr, match_threshold, match_count)
+            if (data.length > 0) {
+                res.statusCode = 200
+                res.end("No se encontro informacion relevante")
+                return
+            }
+            const formatedData = data.map((item) => {
+                return {
+                    content_text: item.content_text,
+                }
+            })
+
+            res.statusCode = 200
+            res.end(JSON.stringify(formatedData))
+            return
+        } catch (e) {
+            console.log(e)
+        }
+    }
+    else {
+        res.statusCode = 400
+        res.end("La consulta debe tener al menos 4 caracteres")
+        return;
+    }
+}
+
 export {
-    ingestManual
+    ingestManual,
+    querySearch
 }
