@@ -13,10 +13,7 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
-
-
-
+const { PDFParse } = require('pdf-parse');
 
 
 /**
@@ -45,9 +42,9 @@ export async function extractTextFromPdf(buffer) {
 
         }
 
-
-
-        const data = await pdf(buffer);
+        const pdfParser = new PDFParse({ data: buffer });
+        const result = await pdfParser.getText();
+        const data = { text: result.text, numpages: result.total, info: {} };
 
         const normalizedText = data.text
 

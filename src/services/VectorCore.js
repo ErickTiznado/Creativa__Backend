@@ -3,37 +3,56 @@
  * Archivo: VectorCore.js
  * Ubicación: src/services/VectorCore.js
  * Responsabilidad: Generar embeddings usando Vertex AI.
- *
- * Requiere configuración en `src/config/index.js`.
  * ------------------------------------------------------------------
  */
 
-import { VertexAI } from "@google-cloud/vertexai";
-
+import aiplatform from '@google-cloud/aiplatform';
 import config from "../config/index.js";
 
-const vertexAI = new VertexAI({
-  project: config.gcp.projectId,
-  location: config.gcp.location,
-  keyFile: config.gcp.keyFilePath,
-});
+const { PredictionServiceClient } = aiplatform.v1;
+const { helpers } = aiplatform;
 
+const clientOptions = {
+    apiEndpoint: `${config.gcp.location}-aiplatform.googleapis.com`,
+    keyFilename: config.gcp.keyFilePath
+};
 
-class VectorCore{
+class VectorCore {
 
     /**
      * Genera un vector de embedding para el texto recibido.
      * @param {string} text
      * @returns {Promise<number[]>}
      */
-    static async embed(text){
-        const model = vertexAI.getGenerativeModel({
-            model: config.gcp.models.embedingModel
+    static async embed(text) {
+        const client = new PredictionServiceClient(clientOptions);
+        
+        const endpoint = `projects/${config.gcp.projectId}/locations/${config.gcp.location}/publishers/google/models/${config.gcp.models.embedingModel}`;
+        
+        // Construir la instancia con helpers.toValue
+        const instance = helpers.toValue({
+            content: text,
+            task_type: 'RETRIEVAL_DOCUMENT'
         });
+        
+        const request = {
+            endpoint,
+            instances: [instance]
+        };
 
-        const result = await model.embedContent(text);
+        const [response] = await client.predict(request);
+        const predictions = response.predictions;
 
-        return result.embedding.values;
+        if (!predictions || predictions.length === 0) {
+            throw new Error('No se obtuvo embedding del modelo');
+        }
+
+        // Extraer embeddings del formato protobuf
+        const embeddingsProto = predictions[0].structValue.fields.embeddings;
+        const valuesProto = embeddingsProto.structValue.fields.values;
+        const embeddings = valuesProto.listValue.values.map(v => v.numberValue);
+
+        return embeddings;
     }
 }
 

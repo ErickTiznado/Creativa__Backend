@@ -28,7 +28,7 @@ const ingestManual = async (req, res) => {
      * Espera `multipart/form-data` con `manual`.
      */
     if(!req.files || !req.files.manual){
-        res.status(400)
+        res.statusCode = 400
         res.end("No se ha proporcionado ningun archivo");
         return;
     }
@@ -36,7 +36,7 @@ const ingestManual = async (req, res) => {
     const manual = await extractTextFromPdf(req.files.manual.data);
 
     if(!manual){
-        res.status(500)
+        res.statusCode = 500
         res.end("Error al procesar el archivo PDF");
         return;
     }
@@ -68,7 +68,7 @@ const ingestManual = async (req, res) => {
         }
     }
 
-    res.status(200)
+    res.statusCode= 200
     if(errorCount > 0){
         res.end(`Proceso completado con ${errorCount} errores`);
         return;

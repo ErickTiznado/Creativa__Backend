@@ -16,6 +16,7 @@
  */
 
 import { supabase } from "../services/SupabaseClient.js";
+import { randomUUID } from "crypto";
 
 export class brief_DB {
   /**
@@ -40,7 +41,7 @@ export class brief_DB {
       }
 
       const { error: Error } = await supabase
-        .schema("public")
+        .schema("devschema")
         .from("campaigns")
         .insert({
           user_id: user_id,
@@ -83,7 +84,7 @@ export class brief_DB {
       // Si se proporciona ID de campaña existente, actualizar
       if (idCampaing != null) {
         const { data: existingCampaign, error } = await supabase
-          .schema("public")
+          .schema("devschema")
           .from("campaigns")
           .select("id")
           .eq("id", idCampaing)
@@ -101,21 +102,14 @@ export class brief_DB {
         }
       }
 
-      // Crear nueva campaña con código único como ID
-      const date = new Date();
-      const codigoUnico =
-        date.getFullYear().toString() +
-        String(date.getMonth() + 1).padStart(2, "0") +
-        String(date.getDate()).padStart(2, "0") +
-        String(date.getHours()).padStart(2, "0") +
-        String(date.getMinutes()).padStart(2, "0") +
-        String(date.getSeconds()).padStart(2, "0");
+      // Crear nueva campaña con UUID
+      const campaignId = randomUUID();
 
       const { error: insertError } = await supabase
-        .schema("public")
+        .schema("devschema")
         .from("campaigns")
         .insert({
-          id: codigoUnico,
+          id: campaignId,
           brief_data: data,
           status: "draft",
         });
@@ -129,7 +123,7 @@ export class brief_DB {
       res.statusCode = 201;
       res.json({
         message: "Brief creado correctamente",
-        id: codigoUnico,
+        id: campaignId,
       });
     } catch (error) {
       console.error("Error crítico en Registrar_Brief:", error);
@@ -165,7 +159,7 @@ export class brief_DB {
       }
 
       const { error } = await supabase
-        .schema("public")
+        .schema("devschema")
         .from("campaigns")
         .update({ brief_data: data })
         .eq("id", idCampaing);
