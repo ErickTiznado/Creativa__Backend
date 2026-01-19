@@ -29,13 +29,13 @@ import getModel from "../shemas/chatBrief.shemaIA.js";
  * Estos campos se irán llenando durante la conversación.
  */
 const brief = {
-nombre_camapaing: "",
- ContentType: "",
+  nombre_campaing: "",
+  ContentType: "",
   Description: "",
   Objective: "",
   observations: "",
-  publishing_channel: ""
-  
+  publishing_channel: "",
+  fechaPublicacion: ""
 }
 
 /**
@@ -55,24 +55,30 @@ const model = getModel('gemini-2.5-flash')
 /**
  * Handler principal del endpoint POST /ai/chat.
  * 
- * @param {Object} req.body - { sessionID: string, userMessage: string }
+ * @param {Object} req.body - { sessionID: string, userMessage: string, userId?: string, campaignId?: string }
  * @returns {Object} - { response: string, data?: Object }
  * 
  * Descripción:
  * Gestiona la conversación con el usuario. Si es la primera interacción de la sesión,
- * crea un registro en `conversations`. Envía el historial completo a Gemini, procesa
- * la respuesta (que puede incluir function calls), y persiste los datos si están completos.
+ * crea un registro en `conversations` con userId y campaignId opcional. 
+ * Envía el historial completo a Gemini, procesa la respuesta (que puede incluir function calls), 
+ * y persiste los datos si están completos.
  */
 async function handleChat(req, res) {
-  const {sessionID, userMessage} = req.body
+  const {sessionID, userMessage, userId, campaignId} = req.body
 
-
-
+  // Validación del sessionID
+  if(!sessionID) {
+    res.statusCode = 400;
+    return res.json({ error: "El campo sessionID es obligatorio." });
+  }
 
   if(!conversations.has(sessionID)){
     conversations.set(sessionID, {
       message: [],
-      data:{}
+      data:{},
+      userId: userId || null,
+      campaignId: campaignId || null
     })
   }
   const session = conversations.get(sessionID)
@@ -90,23 +96,56 @@ async function handleChat(req, res) {
   const candidate = response.response.candidates[0]
   const part = candidate.content.parts[0]
 
+  // Si el modelo ejecutó un function call, procesamos los datos
   if(part.functionCall){
-    const {args} = part.functionCall
-
-    Object.assign(session.data, args)
-     return res.json({
-       type: "data_collected",
-      collectedData: session.data,
-      missingFields: dataValidator(session.data)
-    })
+    const {name, args} = part.functionCall
+    
+    if(name === "Campaing_Brief") {
+      // Actualizamos los datos de la sesión con los argumentos recibidos
+      Object.assign(session.data, args)
+      
+      // Agregamos la respuesta del function call al historial
+      session.message.push(candidate.content)
+      
+      // Si los datos están completos, persistimos
+      if(args.datos_completos) {
+        await registrarConFetch(session.data, session.campaignId)
+      }
+      
+      // Generamos una respuesta para el usuario
+      const functionResponse = {
+        role: "function",
+        parts: [{
+          functionResponse: {
+            name: "Campaing_Brief",
+            response: { success: true }
+          }
+        }]
+      }
+      
+      session.message.push(functionResponse)
+      
+      // Generamos la siguiente respuesta del modelo
+      const nextResponse = await model.generateContent({
+        contents: session.message
+      })
+      
+      const nextCandidate = nextResponse.response.candidates[0]
+      const nextPart = nextCandidate.content.parts[0]
+      
+      session.message.push(nextCandidate.content)
+      
+      return res.json({
+        type: args.datos_completos ? "completed" : "data_collected",
+        text: nextPart.text || "Datos guardados correctamente.",
+        collectedData: session.data,
+        missingFields: dataValidator(session.data)
+      })
+    }
   }
 
-
+  // Si no hubo function call, es una respuesta normal de texto
   session.message.push(candidate.content)
-  let jsonData = cleanAndParse(candidate.content.parts[0].text)
-
-  registrarConFetch(jsonData)
-  
 
   res.json({
     type: "message",
@@ -147,15 +186,39 @@ function cleanAndParse(text) {
  * Nota: requiere Node >= 18 para `fetch` global.
  */
 async function registrarConFetch(data, idCampaing = null) {
-  const response = await fetch('http://localhost:3000/ai/createCampaing', {
-    method: 'POST',
-    headers: {
-
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify({data, idCampaing: "id"})
-  })
+  try {
+    // Limpiar el campo datos_completos antes de guardar (es metadata del chat)
+    const briefData = { ...data };
+    delete briefData.datos_completos;
+    
+    const payload = {
+      data: briefData,
+      ...(idCampaing && { idCampaing })
+    };
+    
+    console.log('📤 Guardando brief:', payload);
+    
+    const response = await fetch('http://localhost:3000/ai/registerBrief', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error('❌ Error al guardar campaña:', response.status, errorData);
+      return null;
+    }
+    
+    const result = await response.json();
+    console.log('✅ Brief guardado exitosamente:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error en registrarConFetch:', error);
+    return null;
+  }
 }
 
 

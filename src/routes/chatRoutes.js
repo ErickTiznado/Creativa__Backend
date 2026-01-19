@@ -45,4 +45,11 @@ RemoteRoute.post("/createCampaing", brief_DB.Create_Campaing);
  */
 RemoteRoute.post("/updateCampaing", brief_DB.updateDataBrief);
 
+/**
+ * POST /ai/registerBrief
+ * Crea o actualiza un brief completo.
+ * Body esperado: { data: Object, idCampaing?: string }
+ */
+RemoteRoute.post("/registerBrief", brief_DB.Registrar_Brief);
+
 export default RemoteRoute;

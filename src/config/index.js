@@ -32,7 +32,7 @@ const config = {
       geminiFlash: 'gemini-2.5-flash',
       geminiVision: 'gemini-pro-vision',
       imagen2: 'imagegeneration@006',
-      embedingModel: 'textembedding-gecko-001'
+      embedingModel: 'text-embedding-004'
     },
     storage: {
       bucketName: process.env.GCS_BUCKET_NAME,
