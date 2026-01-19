@@ -16,9 +16,10 @@ import { Regulator } from 'nicola-framework';
 Regulator.load();
 
 // 2. Obtención de Credenciales
-// Extraemos la URL y la LLAVE ANÓNIMA (Public Key) del proceso.
+// Para operaciones de backend usamos la Service Role Key que bypasea RLS
+// Para operaciones de frontend (si las hubiera), usarías SUPABASE_KEY
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 // 3. Validación de Seguridad (Fail Fast)
 // Verificamos que las credenciales existan antes de intentar conectar.
