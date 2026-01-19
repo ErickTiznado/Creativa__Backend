@@ -33,4 +33,6 @@ if (!supabaseUrl || !supabaseKey) {
 // Creamos la instancia del cliente con las credenciales validadas.
 // Al exportar 'const supabase', cualquier archivo que importe esto
 // usará la misma conexión (ahorro de recursos).
+
+
 export const supabase = createClient(supabaseUrl, supabaseKey);
