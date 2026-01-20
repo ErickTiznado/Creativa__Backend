@@ -3,59 +3,80 @@
  * Archivo: AuthRoutes.js
  * Ubicación: src/routes/AuthRoutes.js
  * Descripción: Definición de las rutas del módulo de autenticación.
- * Aquí se mapean las URLs (endpoints) a sus respectivos controladores
- * y se aplican validaciones previas de datos.
  * ------------------------------------------------------------------
  */
 
 import { Remote, Insulator } from "nicola-framework";
 import AuthController from "../controllers/AuthController.js";
+import { requireAuth } from "../middlewares/AuthMiddleware.js";
+import { requireRole } from "../middlewares/roleMiddleware.js";
 
 // 1. Instancia del Enrutador
-// Creamos un nuevo enrutador 'Remote' para manejar las peticiones HTTP de este módulo.
 const router = new Remote();
 
 /**
- * 2. Esquema de Validación (Insulator)
- * Definimos la estructura estricta que deben tener los datos enviados por el cliente.
- * Si el cliente no envía 'email' o 'password' como strings, Insulator rechazará
- * la petición automáticamente antes de molestar al controlador.
+ * 2. Esquemas de Validación (Insulator)
  */
 const loginSchema = {
     email: "string",
     password: "string"
 };
 
-// Seccion nueva: Agregamos firstName y lastName al validador
 const registerSchema = {
     email: "string",
     password: "string",
     firstName: "string",
     lastName: "string",
-    role: "string"
+    role: "string" // Opcional en controller, pero si se envía debe ser string
 };
 
 // 3. Definición de Rutas
 
+// --- RUTAS PÚBLICAS (Sin Token) ---
+
 /**
- * Endpoint: POST /auth/login
- * Flujo:
- * 1. Recibe la petición.
- * 2. Insulator(loginSchema): Valida tipos de datos.
- * 3. AuthController.login: Ejecuta la lógica de autenticación.
+ * POST /auth/login
+ * Inicia sesión y devuelve un token JWT.
  */
 router.post("/login", Insulator(loginSchema), AuthController.login);
 
-// Conectamos al registro
+/**
+ * POST /auth/register
+ * Crea un nuevo usuario en Supabase y su perfil en la BD.
+ */
 router.post("/register", Insulator(registerSchema), AuthController.register);
 
 /**
- * Endpoint: POST /auth/register
- * Descripción: Ruta reservada para el registro de nuevos usuarios.
- * Actualmente redirige al método 'register' del controlador (pendiente).
+ * POST /auth/forgot-password
+ * Envía un correo de recuperación de contraseña.
  */
-router.post("/register", AuthController.register);
+router.post('/forgot-password', AuthController.forgotPassword);
+
+
+// --- RUTAS PROTEGIDAS (Requieren Token) ---
+
+/**
+ * POST /auth/reset-password
+ * Establece una nueva contraseña (requiere estar autenticado o tener token de sesión).
+ */
+router.post('/reset-password', AuthController.resetPassword);
+
+/**
+ * PUT /auth/profile
+ * Actualiza la información del perfil del usuario (nombre, apellido).
+ */
+router.put('/profile', requireAuth, AuthController.updateProfile);
+
+
+// --- RUTAS ADMINISTRATIVAS (Requieren Rol 'admin') ---
+
+/**
+ * POST /auth/users/role
+ * Permite a un administrador cambiar el rol de otro usuario.
+ * Body esperado: { targetUserId: "uuid", newRole: "user|admin|moderator" }
+ */
+router.post('/users/role', requireAuth, requireRole(['admin']), AuthController.changeUserRole);
+
 
 // 4. Exportación
-// Exportamos el router configurado para que pueda ser montado en app.js.
 export default router;

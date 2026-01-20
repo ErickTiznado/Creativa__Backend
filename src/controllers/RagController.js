@@ -27,7 +27,7 @@ const ingestManual = async (req, res) => {
      * Endpoint: POST /rag/ingestManual
      * Espera `multipart/form-data` con `manual`.
      */
-    if(!req.files || !req.files.manual){
+    if (!req.files || !req.files.manual) {
         res.statusCode = 400
         res.end("No se ha proporcionado ningun archivo");
         return;
@@ -35,7 +35,7 @@ const ingestManual = async (req, res) => {
 
     const manual = await extractTextFromPdf(req.files.manual.data);
 
-    if(!manual){
+    if (!manual) {
         res.statusCode = 500
         res.end("Error al procesar el archivo PDF");
         return;
@@ -43,9 +43,9 @@ const ingestManual = async (req, res) => {
     let errorCount = 0;
     const chunks = chunkText(manual.fullText);
 
-    for(const c of chunks){
-        try{
-            const embedding =  await VectorCore.embed(c);
+    for (const c of chunks) {
+        try {
+            const embedding = await VectorCore.embed(c);
 
             const vectorStr = JSON.stringify(embedding);
 
@@ -61,21 +61,23 @@ const ingestManual = async (req, res) => {
             });
 
         }
-        catch(e){
+        catch (e) {
             console.error("Error al generar el embedding: ", e);
             errorCount++;
             continue;
         }
     }
 
-    res.statusCode= 200
-    if(errorCount > 0){
+    res.statusCode = 200
+    if (errorCount > 0) {
         res.end(`Proceso completado con ${errorCount} errores`);
         return;
     }
     res.end("Proceso completado exitosamente");
     return;
 }
+
+
 
 export {
     ingestManual
