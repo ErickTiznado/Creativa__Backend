@@ -4,4 +4,4 @@ dist
 .vscode
 .DS_Store
 npm-debug.log
-*.json
+key
