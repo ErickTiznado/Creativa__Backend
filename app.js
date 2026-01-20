@@ -17,7 +17,7 @@ import Nicola, { Dynamo, Regulator } from "nicola-framework";
 import AuthRoutes from "./src/routes/AuthRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
 import RagRoute from "./src/routes/rag.routes.js";
-
+import testRoutes from "./src/routes/testRoutes.js";
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
 // Esto debe hacerse antes de inicializar cualquier componente que requiera secretos.
@@ -38,7 +38,7 @@ const app = new Nicola();
 app.use("/auth", AuthRoutes);
 app.use("/rag", RagRoute);
 app.use('/ai', chatRoutes);
-
+app.use('/test', testRoutes);
 // 4. Ruta Base (Health Check)
 // Endpoint sencillo para verificar que el servidor está encendido y respondiendo.
 app.get("/", (req, res) => {
@@ -47,6 +47,6 @@ app.get("/", (req, res) => {
 
 // 5. Arranque del Servidor
 // Ponemos al servidor a escuchar peticiones en el puerto 3000.
-app.listen(3000, () =>{
-    console.log('Servidor corriendo en el puerto 3000')
+app.listen(3000, () => {
+  console.log('Servidor corriendo en el puerto 3000')
 })
