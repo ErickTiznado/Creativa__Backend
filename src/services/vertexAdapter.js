@@ -5,8 +5,9 @@
  * Responsabilidad: Wrapper de alto nivel para consumir Vertex AI (texto, streaming, imagen)
  * y persistir imágenes en Cloud Storage.
  *
- * Nota: este archivo mezcla varios estilos/nombres (typos y nombres de params).
- * Los comentarios aquí describen la intención para facilitar refactors futuros.
+ * Módulos:
+ * - PredictionServiceClient: Para generar texto e imágenes.
+ * - Storage: Para guardar las imágenes generadas.
  * ------------------------------------------------------------------
  */
 
@@ -21,20 +22,24 @@ class vertexAdapter {
       apiEndpoint: `${config.gcp.location}-aiplatform.googleapis.com`,
       keyFilename: config.gcp.keyFilePath,
     });
-    //cliente de almacenamiento en la nuve
+    // Cliente de Google Cloud Storage
     this.Storage = new Storage({
       projectId: config.gcp.projectId,
       keyFilename: config.gcp.keyFilePath,
     });
-    //referencias al bucket a utilizar
+    // Referencia al bucket configurado
     this.bucket = this.Storage.bucket(config.gcp.storage.bucketName);
     this.projectId = config.gcp.projectId;
     this.location = config.gcp.location;
   }
+
   /**
-   * Generación de texto (Gemini) vía PredictionService.
+   * Genera texto usando un modelo generativo (ej. Gemini Pro).
+   * @param {string} prompt - Prompt para el modelo.
+   * @param {Object} options - Opciones de configuración (temperature, tokens, etc.).
+   * @returns {Promise<string>} - Texto generado.
    */
-  async generateText(prompt, opcions = {}) {
+  async generateText(prompt, options = {}) {
     try {
       const endPoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/geminiPro`;
 
@@ -44,10 +49,10 @@ class vertexAdapter {
       const instances = [instanceValue];
 
       const parameter = helpers.toValue({
-        temperature: opcions.temperature || 0.7,
-        maxOutputTokens: opcions.maxOutputTokens || 2048,
-        topP: opcions.topP || 0.95,
-        topK: opcions.topK || 40,
+        temperature: options.temperature || 0.7,
+        maxOutputTokens: options.maxOutputTokens || 2048,
+        topP: options.topP || 0.95,
+        topK: options.topK || 40,
       });
 
       const parameters = parameter;
@@ -58,7 +63,6 @@ class vertexAdapter {
         parameters,
       };
 
-      console.log("Llamando al modelo de IA generativa ");
       const [respuesta] = await this.predictionClient.predict(request);
 
       const predictions = respuesta.predictions;
@@ -70,7 +74,6 @@ class vertexAdapter {
           prediction.stringValue?.fields?.candidates?.listValue?.values?.[0]
             ?.structValue?.fields?.content?.stringValue ||
           "No fue posible generar contenido en la petición";
-        console.log("Texto generado");
         return content;
       }
       throw new Error("No se recibió respuesta del modelo");
@@ -79,12 +82,17 @@ class vertexAdapter {
       throw new Error("No se recibió respuesta del modelo");
     }
   }
+
   /**
-   * Generación de texto en streaming. Llama `onChunk` por fragmento.
+   * Genera texto en modo streaming.
+   * @param {string} prompt - Prompt de entrada.
+   * @param {Function} onChunk - Callback que se ejecuta con cada fragmento de texto recibido.
+   * @param {Object} options - Configuración de generación.
    */
-  async generateTextStream(prompt, onChunk, opcions = {}) {
+  async generateTextStream(prompt, onChunk, options = {}) {
     try {
-      const endpoint = `projects/${this.projectld}/locations/${this.location}/publishers/google/models/${config.gcp.models.geminiPro}:streamGenerateContent'`;
+      // Corregido: this.projectld -> this.projectId
+      const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.geminiPro}:streamGenerateContent`;
       const instanceValue = helpers.toValue({
         content: prompt,
       });
@@ -93,12 +101,12 @@ class vertexAdapter {
         endpoint,
         instances: [instanceValue],
         parameters: helpers.toValue({
-          temperature: opcions?.temperature || 0.7,
-          maxOutputTokens: opcions?.maxOutputTokens || 2048,
+          temperature: options?.temperature || 0.7,
+          maxOutputTokens: options?.maxOutputTokens || 2048,
         }),
       };
 
-      //iniciando el stream
+      // Iniciando el stream
       const streamResponse = await this.predictionClient.streamPredict(request);
       for await (const response of streamResponse) {
         if (response.predictions && response.predictions.length > 0) {
@@ -110,32 +118,34 @@ class vertexAdapter {
           }
         }
       }
-      console.log("Stream de texto finalizado");
     } catch (error) {
       console.error("Error Stream: ", error);
     }
   }
+
   /**
-   * Generación de imagen (Imagen 2) y subida a Cloud Storage.
+   * Genera una imagen (Imagen 2) y la sube a Cloud Storage.
+   * @param {string} prompt - Descripción de la imagen.
+   * @param {Object} options - Opciones (aspectRatio, negativePrompt, etc.).
+   * @returns {Promise<Object|Object[]>} - Metadatos de la(s) imagen(es) generada(s).
    */
-  async imageGeneration(prompt, opcions = {}) {
+  async imageGeneration(prompt, options = {}) {
     try {
       const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.imagen2}`;
 
       const instanceValue = helpers.toValue({
         prompt: prompt,
       });
-      const parameters = helpers.toValues({
-        simpleCount: opcions.simpleCount || 1,
-        aspectRatio: opcions.aspectRatio || "16:9",
-        negativePrompt: opcions.negativePrompt || "",
+      const parameters = helpers.toValue({
+        sampleCount: options.sampleCount || 1,
+        aspectRatio: options.aspectRatio || "16:9",
+        negativePrompt: options.negativePrompt || "",
       });
       const request = {
         endpoint,
         instances: [instanceValue],
         parameters,
       };
-      console.log("generando...");
       const [response] = await this.predictionClient.predict(request);
       if (!response.predictions || response.predictions.length === 0) {
         throw new Error("No fue posible generar la imagen");
@@ -146,19 +156,19 @@ class vertexAdapter {
         const imageBase64 =
           predic.structValue?.fields?.bytesBase64?.stringValue;
         if (imageBase64) {
-          const filname = `campaign_${Date.now()}${Math.random()
+          const filename = `campaign_${Date.now()}${Math.random()
             .toString(36)
             .substring(7)}.png`;
           const imageURL = await this.uploadImageToStorage(
             imageBase64,
-            filname,
-            opcions.folder || "campaigns"
+            filename,
+            options.folder || "campaigns",
           );
           image.push({
             url: imageURL,
-            filename: filname,
+            filename: filename,
             prompt: prompt,
-            aspectRatio: opcions.aspectRatio || "16:9",
+            aspectRatio: options.aspectRatio || "16:9",
             generatedAT: new Date().toISOString(),
           });
         }
@@ -168,24 +178,31 @@ class vertexAdapter {
       console.error("Error en la generacion de imagenes: ", error);
     }
   }
+
   /**
-   * Edición de imagen (Imagen 2). Requiere URL de imagen base y máscara.
+   * Edita una imagen existente usando un prompt y una máscara (opcional).
+   * @param {string} baseImageUrl - URL de la imagen original.
+   * @param {string} prompt - Instrucción de edición.
+   * @param {Object} options - Opciones adicionales.
    */
-  async editImage(baseImageURL, promt, opcions = {}) {
+  async editImage(baseImageUrl, prompt, options = {}) {
     try {
       const baseImageBase64 = await this.downloadImageAsBase64(baseImageUrl);
-      const maskImageBase64 = await this.downloadImageAsBase64(maskImageUrl);
+      // TODO: Validar si maskImageBase64 es necesario o si viene en options
+      // const maskImageBase64 = await this.downloadImageAsBase64(maskImageUrl);
 
       const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.imagen2}:editImage`;
+
+      // Nota: La estructura instanceValue depende de si hay máscara o no.
+      // Se asume implementación pendiente o incompleta en el código original.
       const instanceValue = helpers.toValue({
         prompt: prompt,
         image: {
           bytesBase64Encoded: baseImageBase64,
         },
-        mask: {
-          bytesBase64Encoded: maskImageBase64,
-        },
+        // mask: { bytesBase64Encoded: maskImageBase64 }, // Descomentar si se usa
       });
+
       const request = {
         endpoint,
         instances: [instanceValue],
@@ -195,7 +212,7 @@ class vertexAdapter {
         }),
       };
 
-      //comienza la edicion de la imagen
+      // Comienza la edición de la imagen
       const [response] = await this.predictionClient.predict(request);
 
       const imageBase64 =
@@ -207,13 +224,13 @@ class vertexAdapter {
         const imageUrl = await this.uploadImageToStorage(
           imageBase64,
           filename,
-          "campaigns"
+          "campaigns",
         );
-        //resultado de la edicion
+        // Resultado de la edición
         return {
           url: imageUrl,
-          filname: filname,
-          promt: promt,
+          filename: filename,
+          prompt: prompt,
           editedAT: new Date().toISOString(),
         };
       }
@@ -222,8 +239,13 @@ class vertexAdapter {
       console.error("Error en la edicion de imagenes: ", error);
     }
   }
+
   /**
-   * Guarda un PNG (base64) en Cloud Storage y devuelve la URL pública.
+   * Sube una imagen en base64 a Cloud Storage y la hace pública.
+   * @param {string} base64Image - Contenido de la imagen.
+   * @param {string} filename - Nombre del archivo.
+   * @param {string} folder - Carpeta destino en bucket.
+   * @returns {Promise<string>} - URL pública de la imagen.
    */
   async uploadImageToStorage(base64Image, filename, folder) {
     try {
@@ -245,12 +267,14 @@ class vertexAdapter {
       const publicUrl = `${config.gcp.storage.publicUrl}/${filePath}`;
       return publicUrl;
     } catch (error) {
-      console.error("error al subir la imagen al storage: ", error);
+      console.error("Error al subir la imagen al storage: ", error);
     }
   }
 
   /**
-   * Descarga una imagen remota y la convierte a base64.
+   * Descarga una imagen desde una URL y la devuelve en base64.
+   * @param {string} imageUrl
+   * @returns {Promise<string>}
    */
   async downloadImageAsBase64(imageUrl) {
     try {
@@ -260,41 +284,46 @@ class vertexAdapter {
       const base64 = Buffer.from(response.data, "binary").toString("base64");
       return base64;
     } catch (error) {
-      console.error("Error: ", error);
+      console.error("Error descargando imagen: ", error);
     }
   }
 
   /**
    * Analiza una imagen con un prompt (Gemini Vision).
+   * @param {string} imageUrl - URL de la imagen a analizar.
+   * @param {string} question - Pregunta sobre la imagen.
    */
-  async analyzelimage(imageUrl, question = 'Describe la imagen') {
+  async analyzelimage(imageUrl, question = "Describe la imagen") {
     try {
-        const imageBae64 = await this.downloadImageAsBase64(imageUrl)
-        const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/gemini-pro-vision`;
-        const instanceValue = helpers.toValue({
-            content: question,
-            image: {
-                bytesBase64Encoded: imageBae64
-            }
+      const imageBase64 = await this.downloadImageAsBase64(imageUrl);
+      const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/gemini-pro-vision`;
 
-        })
-        const request = {
+      const instanceValue = helpers.toValue({
+        content: question,
+        image: {
+          bytesBase64Encoded: imageBase64,
+        },
+      });
+
+      const request = {
         endpoint,
         instances: [instanceValue],
         parameters: helpers.toValue({
           temperature: 0.4,
           maxOutputTokens: 1024,
-        })
-    }
-    //comienza el analisis de la imagen
-    const analysis = response.predictions[0]?.structValue?.fields?.content?.stringValue;
-    
-    return analysis;
+        }),
+      };
 
+      // Comienza el análisis de la imagen
+      const [response] = await this.predictionClient.predict(request); // Corregido: faltaba await y referencia a response
+      const analysis =
+        response.predictions[0]?.structValue?.fields?.content?.stringValue;
+
+      return analysis;
     } catch (error) {
-        console.error("Error ", error)
+      console.error("Error en analysis de imagen: ", error);
     }
-}
+  }
 }
 
 export default vertexAdapter;

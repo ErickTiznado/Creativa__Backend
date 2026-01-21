@@ -18,8 +18,8 @@
  */
 
 import { Remote } from "nicola-framework";
-import handleChat from "../controllers/BriefChatController.js";
-import { brief_DB } from "../controllers/Brief_BD_save.js";
+import handleChat from "../controllers/briefchat.controller.js";
+import { brief_DB } from "../controllers/brief-db.controller.js";
 
 // Instancia del enrutador de Nicola Framework
 const RemoteRoute = new Remote();
@@ -29,7 +29,7 @@ const RemoteRoute = new Remote();
  * Maneja la conversación con el usuario para recolectar datos del brief.
  * El controlador usa Vertex AI (Gemini) para procesar el diálogo.
  */
-RemoteRoute.post('/chat', handleChat);
+RemoteRoute.post("/chat", handleChat);
 
 /**
  * POST /ai/createCampaing
