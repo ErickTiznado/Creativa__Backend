@@ -10,7 +10,6 @@ const brand_manual_vectors = async (vector, match_threshold, match_count) => {
     .limit(match_count)
     .get();
 
-  console.log(data);
   return data;
 };
 

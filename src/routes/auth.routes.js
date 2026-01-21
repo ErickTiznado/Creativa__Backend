@@ -9,7 +9,7 @@
  */
 
 import { Remote, Insulator } from "nicola-framework";
-import AuthController from "../controllers/AuthController.js";
+import AuthController from "../controllers/auth.controller.js";
 
 // 1. Instancia del Enrutador
 // Creamos un nuevo enrutador 'Remote' para manejar las peticiones HTTP de este módulo.
@@ -22,17 +22,17 @@ const router = new Remote();
  * la petición automáticamente antes de molestar al controlador.
  */
 const loginSchema = {
-    email: "string",
-    password: "string"
+  email: "string",
+  password: "string",
 };
 
 // Seccion nueva: Agregamos firstName y lastName al validador
 const registerSchema = {
-    email: "string",
-    password: "string",
-    firstName: "string",
-    lastName: "string",
-    role: "string"
+  email: "string",
+  password: "string",
+  firstName: "string",
+  lastName: "string",
+  role: "string",
 };
 
 // 3. Definición de Rutas
