@@ -19,10 +19,38 @@
  * - Los datos del brief se definen en el objeto `brief` (esquema esperado).
  * ------------------------------------------------------------------
  */
-
+import { cyan } from "nicola-framework";
 import { Regulator } from "nicola-framework";
 Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
+
+/**
+ * Helper para ejecutar llamadas al modelo con retry y exponential backoff.
+ * Maneja errores 429 (Too Many Requests) reintentando automáticamente.
+ * @param {Function} fn - Función async que ejecuta la llamada al modelo
+ * @param {number} maxRetries - Número máximo de reintentos (default: 3)
+ * @param {number} baseDelay - Delay base en ms (default: 1000)
+ * @returns {Promise} - Resultado de la llamada al modelo
+ */
+async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isRateLimited = error.message?.includes('429') ||
+        error.message?.includes('RESOURCE_EXHAUSTED') ||
+        error.message?.includes('Too Many Requests');
+
+      if (isRateLimited && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+        console.log(`⏳ Rate limited. Reintentando en ${delay}ms... (intento ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
 
 /**
  * Estructura del brief que el modelo debe completar.
@@ -47,10 +75,13 @@ const brief = {
  */
 const conversations = new Map();
 
-
-
-
-const model = getModel('gemini-2.5-flash')
+/**
+ * Dos instancias del modelo:
+ * - modelFunction: Fuerza function calls para recolectar datos
+ * - modelText: Genera respuestas de texto para interactuar con el usuario
+ */
+const modelFunction = getModel('gemini-2.5-flash', true)   // Fuerza function calling
+const modelText = getModel('gemini-2.5-flash', false)      // Solo respuestas de texto
 
 /**
  * Handler principal del endpoint POST /ai/chat.
@@ -65,95 +96,202 @@ const model = getModel('gemini-2.5-flash')
  * y persiste los datos si están completos.
  */
 async function handleChat(req, res) {
-  const {sessionID, userMessage, userId, campaignId} = req.body
-
+  const { sessionID, userMessage, userId, campaignId } = req.body
+  console.log(cyan(JSON.stringify(req.body)))
   // Validación del sessionID
-  if(!sessionID) {
+  if (!sessionID) {
     res.statusCode = 400;
     return res.json({ error: "El campo sessionID es obligatorio." });
   }
 
-  if(!conversations.has(sessionID)){
+  if (!conversations.has(sessionID)) {
     conversations.set(sessionID, {
       message: [],
-      data:{},
+      data: {},
       userId: userId || null,
       campaignId: campaignId || null
     })
   }
   const session = conversations.get(sessionID)
 
+  // Construir mensaje del usuario con contexto de datos actuales
+  const currentDataContext = Object.keys(session.data).length > 0
+    ? `\n[CONTEXTO - Datos recolectados hasta ahora: ${JSON.stringify(session.data)}]`
+    : "";
+
   session.message.push({
     role: "user",
-    parts:[{text: userMessage}]
-
+    parts: [{ text: userMessage + currentDataContext }]
   })
 
-  const response = await model.generateContent({
+  // Primera llamada: forzamos function call para recolectar datos (con retry)
+  let response = await withRetry(() => modelFunction.generateContent({
     contents: session.message
-  })
+  }))
 
+  console.log(cyan(JSON.stringify(response)))
+
+  if (!response.response.candidates[0]) {
+    res.statusCode = 500;
+    return res.json({ error: "No se pudo generar una respuesta." });
+  }
   const candidate = response.response.candidates[0]
   const part = candidate.content.parts[0]
 
   // Si el modelo ejecutó un function call, procesamos los datos
-  if(part.functionCall){
-    const {name, args} = part.functionCall
-    
-    if(name === "Campaing_Brief") {
+  if (part.functionCall) {
+    const { name, args } = part.functionCall
+
+    if (name === "Campaing_Brief") {
+      console.log("📥 Datos recibidos del modelo:", JSON.stringify(args));
+      console.log("📦 Datos actuales en sesión ANTES:", JSON.stringify(session.data));
+
       // Actualizamos los datos de la sesión con los argumentos recibidos
-      Object.assign(session.data, args)
-      
+      // Filtramos campos vacíos para no sobrescribir datos existentes con valores vacíos
+      const filteredArgs = Object.fromEntries(
+        Object.entries(args).filter(([key, value]) => {
+          // Excluir datos_completos del filtrado normal
+          if (key === "datos_completos") return true;
+          // Solo incluir si tiene valor real
+          return value !== "" && value !== null && value !== undefined;
+        })
+      );
+
+      // Merge: los datos nuevos se añaden/actualizan sobre los existentes
+      Object.assign(session.data, filteredArgs);
+
+      console.log("📦 Datos actuales en sesión DESPUÉS:", JSON.stringify(session.data));
+
       // Agregamos la respuesta del function call al historial
       session.message.push(candidate.content)
-      
+
       // Si los datos están completos, persistimos
-      if(args.datos_completos) {
+      if (args.datos_completos) {
         await registrarConFetch(session.data, session.campaignId)
       }
-      
+
       // Generamos una respuesta para el usuario
       const functionResponse = {
         role: "function",
         parts: [{
           functionResponse: {
             name: "Campaing_Brief",
-            response: { success: true }
+            response: {
+              success: true,
+              currentData: session.data,
+              missingFields: dataValidator(session.data)
+            }
           }
         }]
       }
-      
+
       session.message.push(functionResponse)
-      
-      // Generamos la siguiente respuesta del modelo
-      const nextResponse = await model.generateContent({
+
+      // Generamos la siguiente respuesta del modelo usando modelText para obtener texto (con retry)
+      const nextResponse = await withRetry(() => modelText.generateContent({
         contents: session.message
-      })
-      
+      }))
+
       const nextCandidate = nextResponse.response.candidates[0]
       const nextPart = nextCandidate.content.parts[0]
-      
+
       session.message.push(nextCandidate.content)
-      
+
+      // Limpiar datos_completos del objeto de datos antes de devolverlo
+      const cleanData = { ...session.data };
+      delete cleanData.datos_completos;
+
       return res.json({
         type: args.datos_completos ? "completed" : "data_collected",
         text: nextPart.text || "Datos guardados correctamente.",
-        collectedData: session.data,
-        missingFields: dataValidator(session.data)
+        collectedData: cleanData,
+        missingFields: dataValidator(session.data),
+        success: true
       })
     }
   }
 
-  // Si no hubo function call, es una respuesta normal de texto
+  // Si no hubo function call, intentamos forzar la extracción de datos
+  // Esto no debería pasar con la configuración actual (modo ANY), pero es un fallback
+  console.log("⚠️ El modelo no ejecutó function call. Intentando reintento...");
+
+  // Guardamos la respuesta de texto original
+  const originalText = part.text;
   session.message.push(candidate.content)
+
+  // Inyectamos un prompt de reintento para forzar el function call
+  const retryPrompt = {
+    role: "user",
+    parts: [{
+      text: "[SISTEMA] Por favor ejecuta la función Campaing_Brief ahora con los datos que has recolectado hasta el momento. Datos actuales: " + JSON.stringify(session.data)
+    }]
+  };
+  session.message.push(retryPrompt);
+
+  // Intentamos de nuevo con modelFunction (con retry)
+  const retryResponse = await withRetry(() => modelFunction.generateContent({
+    contents: session.message
+  }));
+
+  const retryCandidate = retryResponse.response.candidates[0];
+  const retryPart = retryCandidate?.content?.parts[0];
+
+  // Si el reintento tiene function call, procesamos
+  if (retryPart?.functionCall && retryPart.functionCall.name === "Campaing_Brief") {
+    const { args } = retryPart.functionCall;
+    const filteredArgs = Object.fromEntries(
+      Object.entries(args).filter(([key, value]) => value !== "" && value !== null && value !== undefined)
+    );
+    Object.assign(session.data, filteredArgs);
+    session.message.push(retryCandidate.content);
+
+    // Respuesta de función
+    const functionResponse = {
+      role: "function",
+      parts: [{
+        functionResponse: {
+          name: "Campaing_Brief",
+          response: {
+            success: true,
+            currentData: session.data,
+            missingFields: dataValidator(session.data)
+          }
+        }
+      }]
+    };
+    session.message.push(functionResponse);
+
+    // Generar respuesta de texto usando modelText (con retry)
+    const textResponse = await withRetry(() => modelText.generateContent({
+      contents: session.message
+    }));
+    const textPart = textResponse.response.candidates[0]?.content?.parts[0];
+    session.message.push(textResponse.response.candidates[0].content);
+
+    // Limpiar datos_completos
+    const cleanData = { ...session.data };
+    delete cleanData.datos_completos;
+
+    return res.json({
+      type: "data_collected",
+      text: textPart?.text || originalText || "He registrado la información proporcionada. ¿Qué más puedo ayudarte?",
+      collectedData: cleanData,
+      missingFields: dataValidator(session.data),
+      success: true
+    });
+  }
+
+  // Si aún así no hay function call, devolvemos la respuesta original con los datos actuales
+  const cleanData = { ...session.data };
+  delete cleanData.datos_completos;
 
   res.json({
     type: "message",
-    text: part.text,
-    collectedData: session.data,
-    missingFields: dataValidator(session.data)
+    text: originalText || part.text,
+    collectedData: cleanData,
+    missingFields: dataValidator(session.data),
+    warning: "El modelo no ejecutó la función de recolección. Los datos mostrados son los acumulados hasta ahora."
   });
-
 
 }
 
@@ -171,14 +309,14 @@ function dataValidator(data) {
  * Si falla, devuelve null.
  */
 function cleanAndParse(text) {
-    try {
-        const cleanText = text.replace(/```json|```/g, "").trim();
-        
-        return JSON.parse(cleanText);
-    } catch (error) {
-        console.error("Error al parsear la campaña:", error);
-        return null;
-    }
+  try {
+    const cleanText = text.replace(/```json|```/g, "").trim();
+
+    return JSON.parse(cleanText);
+  } catch (error) {
+    console.error("Error al parsear la campaña:", error);
+    return null;
+  }
 }
 
 /**
@@ -190,14 +328,14 @@ async function registrarConFetch(data, idCampaing = null) {
     // Limpiar el campo datos_completos antes de guardar (es metadata del chat)
     const briefData = { ...data };
     delete briefData.datos_completos;
-    
+
     const payload = {
       data: briefData,
       ...(idCampaing && { idCampaing })
     };
-    
+
     console.log('📤 Guardando brief:', payload);
-    
+
     const response = await fetch('http://localhost:3000/ai/registerBrief', {
       method: 'POST',
       headers: {
@@ -205,13 +343,13 @@ async function registrarConFetch(data, idCampaing = null) {
       },
       body: JSON.stringify(payload)
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
       console.error('❌ Error al guardar campaña:', response.status, errorData);
       return null;
     }
-    
+
     const result = await response.json();
     console.log('✅ Brief guardado exitosamente:', result);
     return result;
@@ -222,4 +360,4 @@ async function registrarConFetch(data, idCampaing = null) {
 }
 
 
-export  default handleChat;
+export default handleChat;
