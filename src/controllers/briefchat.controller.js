@@ -23,6 +23,7 @@ import { cyan } from "nicola-framework";
 import { Regulator } from "nicola-framework";
 Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
+import ChatSession from "../model/ChatSession.model.js";
 
 /**
  * Helper para ejecutar llamadas al modelo con retry y exponential backoff.
@@ -68,13 +69,10 @@ const brief = {
 };
 
 /**
- * Almacén de conversaciones en memoria.
- * Key: sessionID (string único por usuario/sesión)
- * Value: { message: Array, data: Object }
- * - message: historial de mensajes para contexto del modelo
- * - data: campos del brief completados hasta el momento
+ * Almacén de conversaciones en memoria -> REEMPLAZADO POR BD
+ * Se utiliza el modelo ChatSession para persistencia.
  */
-const conversations = new Map();
+// const conversations = new Map(); // Removed
 
 /**
  * Dos instancias del modelo:
@@ -104,15 +102,82 @@ async function handleChat(req, res) {
     return res.json({ error: "El campo sessionID es obligatorio." });
   }
 
-  if (!conversations.has(sessionID)) {
-    conversations.set(sessionID, {
-      message: [],
-      data: {},
-      userId: userId || null,
-      campaignId: campaignId || null,
-    });
+  // Estructura base de la sesión (en memoria para esta request)
+  let session = {
+    message: [],
+    data: {},
+    userId: userId || null,
+    campaignId: campaignId || null,
+  };
+
+  let sessionRecord = null;
+
+  try {
+    // Intentar recuperar sesión de la BD
+    // Dynamo ORM no tiene .find(), usamos .where().get()
+    const sessionResult = await ChatSession.where("id", sessionID).get();
+    sessionRecord = sessionResult && sessionResult.length > 0 ? sessionResult[0] : null;
+
+    if (sessionRecord) {
+      const chatContent = sessionRecord.chat || {};
+      session.message = chatContent.message || [];
+      session.data = chatContent.data || {};
+      // Mantener IDs si ya existen
+      session.userId = sessionRecord.userId || session.userId;
+      session.campaignId = sessionRecord.campings_id || session.campaignId;
+    } else {
+      // Crear nueva sesión si no existe
+      // Nota: campings_id debe ser un UUID válido si se provee, o null.
+      // Si campaignId viene del cliente, lo usamos.
+      const newRecordPayload = {
+        id: sessionID,
+        chat: { message: [], data: {} },
+        userId: userId || null,
+        campings_id: campaignId || null,
+      };
+
+      // Eliminar campos null/undefined para evitar problemas
+      if (!newRecordPayload.userId) delete newRecordPayload.userId;
+
+      // FIX: No eliminar campings_id si es null. 
+      // Si lo eliminamos, Postgres usa el DEFAULT (gen_random_uuid()) que genera un ID inexistente 
+      // y rompe la FK. Al enviar null explícitamente, evitamos el default.
+      if (newRecordPayload.campings_id === undefined) {
+        newRecordPayload.campings_id = null;
+      }
+
+      try {
+        sessionRecord = await ChatSession.create(newRecordPayload);
+      } catch (createError) {
+        console.error("Error creating session (might exist race condition):", createError);
+        // Try finding again if create failed
+        const retryResult = await ChatSession.where("id", sessionID).get();
+        sessionRecord = retryResult && retryResult.length > 0 ? retryResult[0] : null;
+      }
+    }
+  } catch (error) {
+    console.error("Error al acceder a la BD de sesiones:", error);
+    // Fallback: Si falla la BD, continuamos en memoria
   }
-  const session = conversations.get(sessionID);
+
+  // Helper para guardar cambios en la BD antes de responder
+  const persistSession = async () => {
+    try {
+      if (sessionID) {
+        // IMPORTANTE: Primero filtrar con WHERE antes de llamar a update
+        await ChatSession.where("id", sessionID).update({
+          chat: {
+            message: session.message,
+            data: session.data,
+          },
+          // Actualizar campaignId si cambió o si se quiere forzar
+          ...(session.campaignId ? { campings_id: session.campaignId } : {}),
+        });
+      }
+    } catch (error) {
+      console.error("Error persistiendo sesión:", error);
+    }
+  };
 
   // Construir mensaje del usuario con contexto de datos actuales
   const currentDataContext =
@@ -145,28 +210,21 @@ async function handleChat(req, res) {
 
     if (name === "Campaing_Brief") {
       // Actualizamos los datos de la sesión con los argumentos recibidos
-      // Filtramos campos vacíos para no sobrescribir datos existentes con valores vacíos
       const filteredArgs = Object.fromEntries(
         Object.entries(args).filter(([key, value]) => {
-          // Excluir datos_completos del filtrado normal
           if (key === "datos_completos") return true;
-          // Solo incluir si tiene valor real
           return value !== "" && value !== null && value !== undefined;
         }),
       );
 
-      // Merge: los datos nuevos se añaden/actualizan sobre los existentes
       Object.assign(session.data, filteredArgs);
 
-      // Agregamos la respuesta del function call al historial
       session.message.push(candidate.content);
 
-      // Si los datos están completos, persistimos
       if (args.datos_completos) {
         await registrarConFetch(session.data, session.campaignId);
       }
 
-      // Generamos una respuesta para el usuario
       const functionResponse = {
         role: "function",
         parts: [
@@ -185,7 +243,6 @@ async function handleChat(req, res) {
 
       session.message.push(functionResponse);
 
-      // Generamos la siguiente respuesta del modelo usando modelText para obtener texto (con retry)
       const nextResponse = await withRetry(() =>
         modelText.generateContent({
           contents: session.message,
@@ -197,7 +254,9 @@ async function handleChat(req, res) {
 
       session.message.push(nextCandidate.content);
 
-      // Limpiar datos_completos del objeto de datos antes de devolverlo
+      // Persistir en BD
+      await persistSession();
+
       const cleanData = { ...session.data };
       delete cleanData.datos_completos;
 
@@ -212,12 +271,9 @@ async function handleChat(req, res) {
   }
 
   // Si no hubo function call, intentamos forzar la extracción de datos
-
-  // Guardamos la respuesta de texto original
   const originalText = part.text;
   session.message.push(candidate.content);
 
-  // Inyectamos un prompt de reintento para forzar el function call
   const retryPrompt = {
     role: "user",
     parts: [
@@ -230,7 +286,6 @@ async function handleChat(req, res) {
   };
   session.message.push(retryPrompt);
 
-  // Intentamos de nuevo con modelFunction (con retry)
   const retryResponse = await withRetry(() =>
     modelFunction.generateContent({
       contents: session.message,
@@ -240,7 +295,6 @@ async function handleChat(req, res) {
   const retryCandidate = retryResponse.response.candidates[0];
   const retryPart = retryCandidate?.content?.parts[0];
 
-  // Si el reintento tiene function call, procesamos
   if (
     retryPart?.functionCall &&
     retryPart.functionCall.name === "Campaing_Brief"
@@ -254,7 +308,6 @@ async function handleChat(req, res) {
     Object.assign(session.data, filteredArgs);
     session.message.push(retryCandidate.content);
 
-    // Respuesta de función
     const functionResponse = {
       role: "function",
       parts: [
@@ -272,7 +325,6 @@ async function handleChat(req, res) {
     };
     session.message.push(functionResponse);
 
-    // Generar respuesta de texto usando modelText (con retry)
     const textResponse = await withRetry(() =>
       modelText.generateContent({
         contents: session.message,
@@ -281,7 +333,9 @@ async function handleChat(req, res) {
     const textPart = textResponse.response.candidates[0]?.content?.parts[0];
     session.message.push(textResponse.response.candidates[0].content);
 
-    // Limpiar datos_completos
+    // Persistir en BD
+    await persistSession();
+
     const cleanData = { ...session.data };
     delete cleanData.datos_completos;
 
@@ -293,13 +347,16 @@ async function handleChat(req, res) {
         "He registrado la información proporcionada. ¿Qué más puedo ayudarte?",
       collectedData: cleanData,
       missingFields: dataValidator(session.data),
+      chat: session.message,
       success: true,
     });
   }
 
-  // Si aún así no hay function call, devolvemos la respuesta original con los datos actuales
   const cleanData = { ...session.data };
   delete cleanData.datos_completos;
+
+  // Persistir en BD
+  await persistSession();
 
   res.json({
     type: "message",
