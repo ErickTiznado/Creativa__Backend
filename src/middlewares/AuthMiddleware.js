@@ -12,19 +12,22 @@ import { Coherer } from "nicola-framework";
 
 /**
  * Función middleware que se ejecuta antes del controlador.
+ * Nombre actualizado: requireAuth (según Tarea 2)
  * @param {object} req - Objeto de solicitud (Request).
  * @param {object} res - Objeto de respuesta (Response).
  * @param {function} next - Función para pasar el control al siguiente handler.
  */
-export const authMiddleware = (req, res, next) => {
+export const requireAuth = (req, res, next) => {
     try {
         // 1. Obtención del Header de Autorización
         // Buscamos el encabezado estándar 'Authorization' donde viaja el token.
         const authHeader = req.headers.authorization;
 
-        // Validación: Si no envían el header, denegamos acceso inmediatamente.
-        if (!authHeader) {
-            throw new Error("No se proporcionó token en el header Authorization");
+        // Validación: Si no envían el header O no empieza con "Bearer "
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            // Nota: Es mejor responder directamente aquí para evitar confusiones
+            res.statusCode = 401;
+            return res.json({ error: "Token no proporcionado" });
         }
 
         // 2. Extracción del Token
@@ -33,16 +36,16 @@ export const authMiddleware = (req, res, next) => {
         // authHeader.split(" ") genera un array: ["Bearer", "eyJhbG..."]
         const token = authHeader.split(" ")[1];
 
-        // Validación: Aseguramos que el token exista después de separar la cadena.
+        // Validación extra: Aseguramos que el token exista después de separar
         if (!token) {
-            throw new Error("Formato de token inválido (se esperaba 'Bearer <token>')");
+            res.statusCode = 401;
+            return res.json({ error: "Formato de token inválido" });
         }
 
         // 3. Verificación de Firma y Expiración
         // Coherer.verify() realiza dos chequeos críticos:
         // a) Que la firma coincida con nuestro NICOLA_SECRET (Autenticidad).
         // b) Que el tiempo actual no supere la fecha de expiración (Validez).
-        // Si falla algo, Coherer lanza un error automáticamente.
         const payload = Coherer.verify(token);
 
         // 4. Inyección de Datos de Usuario
@@ -55,13 +58,11 @@ export const authMiddleware = (req, res, next) => {
         next();
 
     } catch (error) {
-        // 6. Manejo de Acceso Denegado
-        // Si ocurre cualquier error (token expirado, falso, o inexistente),
-        // respondemos con 401 Unauthorized y detenemos el flujo.
+        // 6. Manejo de Acceso Denegado (Token inválido o expirado)
         res.statusCode = 401;
         res.json({
-            error: "Acceso denegado",
-            message: error.message // Ej: "Token Expired" o "Token Invalid"
+            error: "Token inválido o expirado",
+            details: error.message // Útil para debugging, puedes quitarlo en producción
         });
     }
 };
