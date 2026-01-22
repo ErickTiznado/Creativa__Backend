@@ -28,16 +28,21 @@ const vertexInstance = new VertexAI({
 const systemInstruction = `
 Eres un asistente de recolección de datos para campañas publicitarias. Tu objetivo es extraer datos de la conversación de manera conversacional y amigable.
 
-REGLAS CRÍTICAS:
-1. Si el usuario no ha proporcionado explícitamente un dato, NO inventes información.
-2. Pregunta por los datos faltantes de manera natural, uno a la vez.
-3. Cuando el usuario proporcione información nueva o completa, DEBES ejecutar la función 'Campaing_Brief' con los datos recolectados.
-4. La fecha debe estar en formato YYYY-MM-DD. Si el usuario da otro formato, solicita el formato correcto.
-5. Hoy es ${new Date().toISOString().split("T")[0]}. Usa esta fecha para calcular fechas futuras.
-6. Siempre responde en español.
-7. Cuando tengas todos los datos, ejecuta 'Campaing_Brief' con datos_completos: true.
+REGLAS CRÍTICAS - DEBES SEGUIRLAS SIEMPRE:
+1. OBLIGATORIO: SIEMPRE ejecuta la función 'Campaing_Brief' después de CADA mensaje del usuario. Esto es MANDATORIO, sin excepciones.
+2. IMPORTANTE: Cuando ejecutes 'Campaing_Brief', DEBES incluir TODOS los datos conocidos:
+   - Los datos del [CONTEXTO] que ya fueron recolectados anteriormente
+   - MÁS los datos nuevos que el usuario proporcionó en este mensaje
+   - NUNCA envíes solo los datos nuevos, siempre envía el conjunto COMPLETO de todos los datos conocidos
+3. Si el usuario no ha proporcionado explícitamente un dato, deja el campo vacío (""). NUNCA inventes información.
+4. Después de ejecutar 'Campaing_Brief', pregunta por UN campo faltante de manera natural y conversacional.
+5. La fecha debe estar en formato YYYY-MM-DD. Si el usuario da otro formato, conviértela o solicita el formato correcto.
+6. Hoy es ${new Date().toISOString().split("T")[0]}. Usa esta fecha para calcular fechas futuras como "mañana", "la próxima semana", etc.
+7. Siempre responde en español de manera amigable.
+8. Cuando tengas TODOS los datos completos, ejecuta 'Campaing_Brief' con datos_completos: true.
+9. Prioriza preguntar por los campos en este orden: nombre_campaing, ContentType, publishing_channel, Description, Objective, fechaPublicacion, observations.
 
-CAMPOS A RECOLECTAR:
+CAMPOS A RECOLECTAR (todos son necesarios):
 - nombre_campaing: Nombre de la campaña
 - ContentType: Tipo de publicación (Post, Reel, Story, etc.)
 - Description: Descripción breve de la campaña
@@ -45,6 +50,13 @@ CAMPOS A RECOLECTAR:
 - observations: Observaciones adicionales o requerimientos
 - publishing_channel: Canal de publicación (Instagram, Facebook, TikTok, etc.)
 - fechaPublicacion: Fecha de publicación en formato YYYY-MM-DD
+
+FLUJO DE CONVERSACIÓN:
+1. Usuario envía mensaje con [CONTEXTO] de datos anteriores
+2. Combinar datos del CONTEXTO + datos nuevos del mensaje
+3. Ejecutar 'Campaing_Brief' con TODOS los datos combinados
+4. Responder confirmando lo recibido y preguntando por el siguiente dato faltante
+5. Repetir hasta tener todos los campos completos
 `;
 
 /**
@@ -102,23 +114,47 @@ const tools = [
 
 /**
  * Configuración de generación para el modelo.
+ * Temperatura reducida para mayor consistencia en function calls.
  */
 const generationConfig = {
-  temperature: 0.7,
+  temperature: 0.4,
   topP: 0.95,
   maxOutputTokens: 2048,
 };
 
 /**
+ * Configuración de herramientas para FORZAR function calling.
+ * ANY: El modelo DEBE usar funciones en cada respuesta
+ */
+const toolConfigForced = {
+  functionCallingConfig: {
+    mode: "ANY",
+    allowedFunctionNames: ["Campaing_Brief"]
+  }
+};
+
+/**
+ * Configuración para respuestas de TEXTO (sin function calling).
+ * NONE: El modelo NO puede usar funciones, solo responde con texto
+ */
+const toolConfigText = {
+  functionCallingConfig: {
+    mode: "NONE"
+  }
+};
+
+/**
  * Obtiene una instancia configurada del modelo generativo.
  * @param {string} modelName - Nombre del modelo a usar
+ * @param {boolean} forceFunction - Si true, fuerza function calls. Si false, solo texto.
  * @returns {GenerativeModel} - Instancia del modelo configurado
  */
-function getModel(modelName = "gemini-2.0-flash-exp") {
+function getModel(modelName = "gemini-2.0-flash-exp", forceFunction = true) {
   return vertexInstance.getGenerativeModel({
     model: modelName,
     systemInstruction: systemInstruction,
     tools: tools,
+    toolConfig: forceFunction ? toolConfigForced : toolConfigText,
     generationConfig: generationConfig,
   });
 }
