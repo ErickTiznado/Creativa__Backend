@@ -17,6 +17,7 @@ import Nicola, { Dynamo, Regulator } from "nicola-framework";
 import AuthRoutes from "./src/routes/AuthRoutes.js";
 import chatRoutes from "./src/routes/chatRoutes.js";
 import RagRoute from "./src/routes/rag.routes.js";
+import FeedbackRoutes from "./src/routes/FeedbackRoutes.js";
 
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
@@ -38,6 +39,7 @@ const app = new Nicola();
 app.use("/auth", AuthRoutes);
 app.use("/rag", RagRoute);
 app.use('/ai', chatRoutes);
+app.use("/api/feedback", FeedbackRoutes);
 
 // 4. Ruta Base (Health Check)
 // Endpoint sencillo para verificar que el servidor está encendido y respondiendo.
