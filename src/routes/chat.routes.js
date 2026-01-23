@@ -30,7 +30,7 @@ const RemoteRoute = new Remote();
 RemoteRoute.post(
   "/chat",
   requireAuth,
-  requireRole(["user", "admin"]),
+  requireRole(["marketing", "admin", "designer"]),
   handleChat,
 );
 

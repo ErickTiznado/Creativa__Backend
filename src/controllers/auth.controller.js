@@ -37,15 +37,23 @@ export default class AuthController {
 
             const payload = { userId: data.user.id, email: data.user.email };
             // Firma del token propio
-            const token = Coherer.sign(payload, { expiresIn: '1h' });
-            
+            const token = Coherer.sign(payload, { expiresIn: '60d' });
+            const role = await supabase
+                .schema('devschema')
+                .from('profile')
+                .select('role')
+                .eq('id', data.user.id)
+                .single()
+
+
             res.statusCode = 200;
             res.json({
                 message: "Login exitoso",
                 token: token,
                 user: {
                     id: data.user.id,
-                    email: data.user.email
+                    email: data.user.email,
+                    role: role.data.role
                 }
             });
 
@@ -91,7 +99,7 @@ export default class AuthController {
             if (dbError) {
                 console.error("Error guardando perfil", dbError);
                 res.statusCode = 500;
-                return res.json({ error: "Usuario creado, pero falló al guardar el perfil."});
+                return res.json({ error: "Usuario creado, pero falló al guardar el perfil." });
             }
 
             // C. Responder éxito
@@ -123,11 +131,11 @@ export default class AuthController {
             const { email } = req.body;
 
             // Validación básica
-            if (!email || email.trim() === '' ) {
+            if (!email || email.trim() === '') {
                 res.statusCode = 400;
-                return res.json({ error: "Email es obligatorio"});
+                return res.json({ error: "Email es obligatorio" });
             }
-        
+
             // Validación PatternBuilder
             const emailPattern = new PatternBuilder()
                 .startOfLine() // Corregido: startOfLine (con L mayúscula)
@@ -140,7 +148,7 @@ export default class AuthController {
 
             if (!emailPattern.matches(email)) {
                 res.statusCode = 400;
-                return res.json({ error: "Formato de email inválido"});
+                return res.json({ error: "Formato de email inválido" });
             }
 
             // Obtener URL del frontend (Corregido typos FROTEND -> FRONTEND)
@@ -150,7 +158,7 @@ export default class AuthController {
                 // Corregido: Faltaba paréntesis de cierre
                 console.error("ERROR CRÍTICO: FRONTEND_URL no está definida en .env");
                 res.statusCode = 500;
-                return res.json({ error: "Error de configuración del servidor"});    
+                return res.json({ error: "Error de configuración del servidor" });
             }
 
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -183,7 +191,7 @@ export default class AuthController {
     static async resetPassword(req, res) {
         try {
             const { newPassword } = req.body;
-            
+
             // 1. Extraer el token manualmente (ya que quitamos el middleware)
             const authHeader = req.headers.authorization;
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -195,7 +203,7 @@ export default class AuthController {
             // 2. Validar contraseña (Tu lógica de seguridad)
             if (!newPassword || newPassword.length < 8) {
                 res.statusCode = 400;
-                return res.json({ error: "La contraseña debe tener al menos 8 caracteres"});
+                return res.json({ error: "La contraseña debe tener al menos 8 caracteres" });
             }
             const upperCasePattern = new PatternBuilder().range('A', 'Z');
             const digitPattern = new PatternBuilder().digit();
@@ -219,7 +227,7 @@ export default class AuthController {
                 data.user.id,
                 { password: newPassword }
             );
-            
+
             // NOTA: Si te sale error de "admin undefined", avísame para darte el plan B.
             // Pero esto es lo más limpio para backends.
 
@@ -242,10 +250,38 @@ export default class AuthController {
      * TAREA 2.2: Actualización de Perfil (CORREGIDO)
      * Ruta asociada: PUT /auth/profile
      */
+
+    static async getProfile(req, res) {
+        try {
+            // Extraer userId del JWT (viene de requireAuth middleware)
+            const { userId } = req.user;
+
+            const { data, error } = await supabase
+                .schema('devschema')
+                .from('profile')
+                .select('*')
+                .eq('id', userId)
+                .single(); // Usamos .single() porque esperamos UN SOLO perfil
+
+            if (error) {
+                console.error("Error al obtener el perfil:", error);
+                res.statusCode = 500;
+                return res.json({ error: "Error al obtener el perfil" });
+            }
+
+            res.statusCode = 200;
+            return res.json(data);
+        } catch (error) {
+            console.error("Excepción en getProfile:", error);
+            res.statusCode = 500;
+            return res.json({ error: "Error interno del servidor" });
+        }
+    }
+
     static async updateProfile(req, res) {
         try {
             // 1. Obtener ID del usuario autenticado
-            const { userId } = req.user; 
+            const { userId } = req.user;
 
             // 2. Extraer datos del body
             const { firstName, lastName } = req.body;
@@ -255,7 +291,7 @@ export default class AuthController {
 
             // 3. Construir objeto de actualización
             const updateData = {};
-            
+
             // Validación First Name
             if (firstName && firstName.trim().length > 0) {
                 updateData.first_name = firstName.trim();
@@ -323,9 +359,9 @@ export default class AuthController {
 
             // 1. AUTO-PROTECCIÓN
             if (targetUserId.trim() === requesterId.trim()) {
-                res.statusCode = 400; 
-                return res.json({ 
-                    error: "No puedes cambiar tu propio rol. Solicita a otro administrador que lo haga." 
+                res.statusCode = 400;
+                return res.json({
+                    error: "No puedes cambiar tu propio rol. Solicita a otro administrador que lo haga."
                 });
             }
 
@@ -362,7 +398,7 @@ export default class AuthController {
             }
 
             res.statusCode = 200;
-            return res.json({ 
+            return res.json({
                 message: "Rol actualizado correctamente",
                 targetUserId: targetUserId,
                 newRole: newRole
