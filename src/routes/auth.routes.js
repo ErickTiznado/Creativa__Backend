@@ -67,7 +67,7 @@ router.post("/reset-password", AuthController.resetPassword);
 router.put("/profile", requireAuth, AuthController.updateProfile);
 
 // --- RUTAS ADMINISTRATIVAS (Requieren Rol 'admin') ---
-
+router.get("/profile", requireAuth, AuthController.getProfile);
 /**
  * POST /auth/users/role
  * Permite a un administrador cambiar el rol de otro usuario.
