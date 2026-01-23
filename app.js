@@ -20,6 +20,7 @@ import chatRoutes from "./src/routes/chat.routes.js";
 import RagRoute from "./src/routes/rag.routes.js";
 import testRoutes from "./src/routes/test.routes.js";
 import CampaignsRoutes from "./src/routes/campaigns.routes.js";
+import GeneratorRoutes from "./src/routes/generator.Routes.js";
 
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
@@ -58,6 +59,7 @@ app.use("/test", testRoutes);
 // Rutas de campañas
 // Base URL: http://localhost:3000/campaigns
 app.use("/campaigns", CampaignsRoutes);
+app.use("/generator", GeneratorRoutes);
 
 // 4. Ruta Base (Health Check)
 // Endpoint sencillo para verificar que el servidor está encendido y respondiendo.
