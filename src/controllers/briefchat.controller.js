@@ -19,7 +19,6 @@
  * - Los datos del brief se definen en el objeto `brief` (esquema esperado).
  * ------------------------------------------------------------------
  */
-import { cyan } from "nicola-framework";
 import { Regulator } from "nicola-framework";
 Regulator.load();
 import getModel from "../shemas/chatBrief.shemaIA.js";
@@ -128,6 +127,9 @@ async function handleChat(req, res) {
         session.message = chatContent.message || [];
         session.data = chatContent.data || {};
         // Mantener IDs si ya existen
+        if (sessionRecord.userId === null) {
+          session.userId = userId || null;
+        }
         session.userId = sessionRecord.userId || session.userId;
         session.campaignId = sessionRecord.campings_id || session.campaignId;
       } else {
@@ -137,12 +139,12 @@ async function handleChat(req, res) {
         const newRecordPayload = {
           id: sessionID,
           chat: { message: [], data: {} },
-          userId: userId || null,
+          '"userId"': userId || null,
           campings_id: campaignId || null,
         };
 
         // Eliminar campos null/undefined para evitar problemas
-        if (!newRecordPayload.userId) delete newRecordPayload.userId;
+        if (!newRecordPayload['"userId"']) delete newRecordPayload['"userId"'];
 
         // FIX: No eliminar campings_id si es null.
         // Si lo eliminamos, Postgres usa el DEFAULT (gen_random_uuid()) que genera un ID inexistente
@@ -192,8 +194,8 @@ async function handleChat(req, res) {
     const currentDataContext =
       Object.keys(session.data).length > 0
         ? `\n[CONTEXTO - Datos recolectados hasta ahora: ${JSON.stringify(
-            session.data
-          )}]`
+          session.data
+        )}]`
         : "";
     const ragContext = await getDataRag(userMessage);
     let userMessage2 = userMessage;
@@ -212,7 +214,6 @@ async function handleChat(req, res) {
       role: "user",
       parts: [{ text: userMessage2 + currentDataContext }],
     });
-
     // Primera llamada: forzamos function call para recolectar datos (con retry)
     let response = await withRetry(() =>
       modelFunction.generateContent({
@@ -243,10 +244,6 @@ async function handleChat(req, res) {
         Object.assign(session.data, filteredArgs);
 
         session.message.push(candidate.content);
-
-        if (args.datos_completos) {
-          await registrarConFetch(session.data, session.campaignId);
-        }
 
         const functionResponse = {
           role: "function",
@@ -421,42 +418,7 @@ function cleanAndParse(text) {
   }
 }
 
-/**
- * Persistencia “best effort” hacia el endpoint interno `/ai/createCampaing`.
- * Nota: requiere Node >= 18 para `fetch` global.
- */
-async function registrarConFetch(data, idCampaing = null) {
-  try {
-    // Limpiar el campo datos_completos antes de guardar (es metadata del chat)
-    const briefData = { ...data };
-    delete briefData.datos_completos;
 
-    const payload = {
-      data: briefData,
-      ...(idCampaing && { idCampaing }),
-    };
-
-    const response = await fetch("http://localhost:3000/ai/registerBrief", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error("❌ Error al guardar campaña:", response.status, errorData);
-      return null;
-    }
-
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error("❌ Error en registrarConFetch:", error);
-    return null;
-  }
-}
 
 //Obtener datos de rag para contexto de marca
 

@@ -61,7 +61,7 @@ const config = {
       geminiPro: "gemini-2.5-pro",
       geminiFlash: "gemini-2.5-flash",
       geminiVision: "gemini-pro-vision",
-      imagen2: "imagegeneration@006",
+      imagen2: "gemini-1.5-pro",
       embedingModel: "text-embedding-004",
     },
     storage: {
@@ -80,6 +80,10 @@ const config = {
     port: parseInt(process.env.PORT, 10) || 3000,
     nodeEnv: process.env.NODE_ENV || "development",
     jwtSecret: process.env.NICOLA_SECRET,
+  },
+  banana: {
+    apiKey: process.env.BANANA_API_KEY,
+    modelKey: process.env.BANANA_MODEL_KEY,
   },
 };
 

@@ -22,7 +22,7 @@ export class brief_DB {
   /**
    * Crea una nueva campaña para un usuario.
    * 
-   * @route POST /ai/createCampaing
+   * @route POST /campaigns/create
    * @param {Object} req.body - { user_id: string }
    * @returns {Object} - { message: "Brief creado correctamente" }
    * 
@@ -32,7 +32,7 @@ export class brief_DB {
    */
   static async Create_Campaing(req, res) {
     try {
-      const { user_id } = req.body;
+      const { user_id, brief_data, designer_id } = req.body;
 
       // Validación de entrada
       if (!user_id) {
@@ -45,8 +45,9 @@ export class brief_DB {
         .from("campaigns")
         .insert({
           user_id: user_id,
-          status: "new",
-          brief_data: {},
+          status: "draft",
+          brief_data: brief_data || {},
+          designer_id: designer_id || null,
         });
 
       if (Error) {
