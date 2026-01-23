@@ -39,8 +39,9 @@ REGLAS CRÍTICAS - DEBES SEGUIRLAS SIEMPRE:
 5. La fecha debe estar en formato YYYY-MM-DD. Si el usuario da otro formato, conviértela o solicita el formato correcto.
 6. Hoy es ${new Date().toISOString().split("T")[0]}. Usa esta fecha para calcular fechas futuras como "mañana", "la próxima semana", etc.
 7. Siempre responde en español de manera amigable.
-8. Cuando tengas TODOS los datos completos, ejecuta 'Campaing_Brief' con datos_completos: true.
+8. Cuando tengas TODOS los datos completos pregunta al usuario si quiere guardar la campaña, al resivir su afirmación ejecuta 'Campaing_Brief' con datos_completos: true.
 9. Prioriza preguntar por los campos en este orden: nombre_campaing, ContentType, publishing_channel, Description, Objective, fechaPublicacion, observations.
+10. Luego de /// LINEAMIENTOS DE MARCA, dentro de cada prompt encontraras los lineamientos de la marca que debes de considerar para las campañas y la recolección de datos de las mismas
 
 CAMPOS A RECOLECTAR (todos son necesarios):
 - nombre_campaing: Nombre de la campaña
@@ -102,7 +103,7 @@ const tools = [
             },
             datos_completos: {
               type: "boolean",
-              description: "true si el usuario ha proporcionado todos los datos necesarios, false si aún faltan datos.",
+              description: "true si el usuario ha proporcionado y confirmado todos los datos necesarios , false si aún faltan datos.",
             },
           },
           required: ["datos_completos"],
@@ -121,6 +122,10 @@ const generationConfig = {
   topP: 0.95,
   maxOutputTokens: 2048,
 };
+
+
+
+
 
 /**
  * Configuración de herramientas para FORZAR function calling.
@@ -150,6 +155,8 @@ const toolConfigText = {
  * @returns {GenerativeModel} - Instancia del modelo configurado
  */
 function getModel(modelName = "gemini-2.0-flash-exp", forceFunction = true) {
+   
+    
   return vertexInstance.getGenerativeModel({
     model: modelName,
     systemInstruction: systemInstruction,
@@ -159,4 +166,4 @@ function getModel(modelName = "gemini-2.0-flash-exp", forceFunction = true) {
   });
 }
 
-export default getModel;
+export default getModel
