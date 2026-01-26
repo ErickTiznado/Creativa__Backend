@@ -21,11 +21,11 @@ import { randomUUID } from "crypto";
 export class brief_DB {
   /**
    * Crea una nueva campaña para un usuario.
-   * 
+   *
    * @route POST /ai/createCampaing
    * @param {Object} req.body - { user_id: string }
    * @returns {Object} - { message: "Brief creado correctamente" }
-   * 
+   *
    * Descripción:
    * Inserta una nueva fila en `campaigns` con estado "new" y brief_data vacío.
    * Esta campaña luego puede ser actualizada con datos del brief mediante updateDataBrief.
@@ -68,18 +68,18 @@ export class brief_DB {
 
   /**
    * Crea un brief completo o lo actualiza si ya existe.
-   * 
+   *
    * @route POST /ai/registerBrief
    * @param {Object} req.body - { data: Object, idCampaing?: string }
    * @returns {Object} - { message: "Brief creado/actualizado correctamente" }
-   * 
+   *
    * Descripción:
    * Si `idCampaing` existe, verifica la campaña y delega a updateDataBrief.
    * Si no existe, crea una nueva campaña con código único como ID.
    */
   static async Registrar_Brief(req, res) {
     try {
-      const { data, idCampaing } = req.body;
+      const { user_id, data, idCampaing, designer_id } = req.body;
 
       // Si se proporciona ID de campaña existente, actualizar
       if (idCampaing != null) {
@@ -110,8 +110,10 @@ export class brief_DB {
         .from("campaigns")
         .insert({
           id: campaignId,
+          user_id: user_id,
           brief_data: data,
           status: "draft",
+          designer_id: designer_id,
         });
 
       if (insertError) {
@@ -134,11 +136,11 @@ export class brief_DB {
 
   /**
    * Actualiza únicamente el campo `brief_data` de una campaña existente.
-   * 
+   *
    * @route PUT/PATCH /ai/updateCampaing
    * @param {Object} req.body - { data: Object, idCampaing: string }
    * @returns {Object} - { message: "Modificación de datos de campaña exitosa." }
-   * 
+   *
    * Descripción:
    * Busca la campaña por ID y actualiza solo su campo `brief_data` con el nuevo contenido.
    * Útil para guardar progreso del chat mientras se recopila información del brief.

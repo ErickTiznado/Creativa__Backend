@@ -116,7 +116,8 @@ async function handleChat(req, res) {
     // Intentar recuperar sesión de la BD
     // Dynamo ORM no tiene .find(), usamos .where().get()
     const sessionResult = await ChatSession.where("id", sessionID).get();
-    sessionRecord = sessionResult && sessionResult.length > 0 ? sessionResult[0] : null;
+    sessionRecord =
+      sessionResult && sessionResult.length > 0 ? sessionResult[0] : null;
 
     if (sessionRecord) {
       const chatContent = sessionRecord.chat || {};
@@ -132,15 +133,15 @@ async function handleChat(req, res) {
       const newRecordPayload = {
         id: sessionID,
         chat: { message: [], data: {} },
-        userId: userId || null,
+        '"userId"': userId || null,
         campings_id: campaignId || null,
       };
 
       // Eliminar campos null/undefined para evitar problemas
-      if (!newRecordPayload.userId) delete newRecordPayload.userId;
+      if (!newRecordPayload['"userId"']) delete newRecordPayload['"userId"'];
 
-      // FIX: No eliminar campings_id si es null. 
-      // Si lo eliminamos, Postgres usa el DEFAULT (gen_random_uuid()) que genera un ID inexistente 
+      // FIX: No eliminar campings_id si es null.
+      // Si lo eliminamos, Postgres usa el DEFAULT (gen_random_uuid()) que genera un ID inexistente
       // y rompe la FK. Al enviar null explícitamente, evitamos el default.
       if (newRecordPayload.campings_id === undefined) {
         newRecordPayload.campings_id = null;
@@ -149,10 +150,14 @@ async function handleChat(req, res) {
       try {
         sessionRecord = await ChatSession.create(newRecordPayload);
       } catch (createError) {
-        console.error("Error creating session (might exist race condition):", createError);
+        console.error(
+          "Error creating session (might exist race condition):",
+          createError,
+        );
         // Try finding again if create failed
         const retryResult = await ChatSession.where("id", sessionID).get();
-        sessionRecord = retryResult && retryResult.length > 0 ? retryResult[0] : null;
+        sessionRecord =
+          retryResult && retryResult.length > 0 ? retryResult[0] : null;
       }
     }
   } catch (error) {
@@ -340,7 +345,7 @@ async function handleChat(req, res) {
     delete cleanData.datos_completos;
 
     return res.json({
-      type: "data_collected",
+      type: args.datos_completos ? "completed" : "data_collected",
       text:
         textPart?.text ||
         originalText ||

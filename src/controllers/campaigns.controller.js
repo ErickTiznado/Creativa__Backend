@@ -23,3 +23,15 @@ export const getCampaigns = async (req, res) => {
     });
   }
 };
+
+export const getCampaignsDesigners = async (req, res) => {
+  const { designerId } = req.body;
+
+  const response = await Brief.select().where("designer_id", designerId).get();
+
+  res.json({
+    message: "Campañas obtenidas con éxito",
+    data: response,
+    success: true,
+  });
+};
