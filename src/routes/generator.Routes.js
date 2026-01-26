@@ -1,5 +1,5 @@
 import { Remote } from "nicola-framework";
-import { saveToStorage } from "../controllers/GeneratorController.js";
+import { saveToStorage, refineAsset } from "../controllers/GeneratorController.js";
 
 const router = new Remote();
 
