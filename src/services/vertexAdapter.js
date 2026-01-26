@@ -243,7 +243,6 @@ class vertexAdapter {
             source: "vertex-ai-gemini",
           },
         },
-        public: true,
       });
 
       const publicUrl = `${config.gcp.storage.publicUrl}/${filePath}`;
