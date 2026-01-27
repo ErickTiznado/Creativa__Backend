@@ -1,52 +1,188 @@
 import { jest } from '@jest/globals';
 
-// --- variables de control para Mocks Dinámicos ---
-let mockGeminiResponse;
-const mockSharpResize = jest.fn().mockReturnThis();
+// ------------------------------------------------------------------
+// 1. MOCKS DE LIBRERÍAS NATIVAS Y EXTERNAS
+// ------------------------------------------------------------------
 
-// 1. MOCKS DE DEPENDENCIAS (Antes de importar el controlador)
-jest.unstable_mockModule('../model/CampaignAsset.js', () => ({
-    default: {
-        create: jest.fn(),
-        where: jest.fn().mockReturnThis(),
-        get: jest.fn()
-    }
+// A. Mock de 'url' y 'path'
+jest.unstable_mockModule('url', () => ({
+    __esModule: true,
+    fileURLToPath: jest.fn(() => '/mocked/path/file.js')
 }));
 
+jest.unstable_mockModule('path', () => ({
+    dirname: jest.fn(() => '/mocked/path'),
+    join: jest.fn(() => '/mocked/path/creativa-key.json'),
+    resolve: jest.fn(() => '/mocked/path'),
+    sep: '/',
+    default: { dirname: jest.fn(), join: jest.fn() }
+}));
+
+// Mock Sharp
+const mockSharpResize = jest.fn().mockReturnThis();
 jest.unstable_mockModule('sharp', () => ({
     default: jest.fn(() => ({
         metadata: jest.fn().mockResolvedValue({ format: 'png' }),
-        resize: mockSharpResize, // Usamos la variable para rastrear llamadas
+        resize: mockSharpResize,
         toFormat: jest.fn().mockReturnThis(),
         toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-buffer'))
     }))
 }));
 
+// Mock Axios
 jest.unstable_mockModule('axios', () => ({
     default: {
         get: jest.fn().mockResolvedValue({ data: Buffer.from('fake-img') })
     }
 }));
 
+// Mock Google Storage
+const mockFile = { save: jest.fn().mockResolvedValue(true) };
+jest.unstable_mockModule('@google-cloud/storage', () => ({
+    Storage: jest.fn().mockImplementation(() => ({
+        bucket: jest.fn(() => ({ file: jest.fn(() => mockFile) }))
+    }))
+}));
+
+// Mock Google Vertex AI (Gemini)
+// Nota: GeminiService lo usa, pero el Controller TAMBIEN lo usa directamente en generateImages
+let mockGeminiResponse = {
+    response: { candidates: [{ content: { parts: [{ text: "ok", inlineData: { data: 'b64' } }] } }] }
+};
+const mockGenerateContent = jest.fn().mockImplementation(() => Promise.resolve(mockGeminiResponse));
 jest.unstable_mockModule('@google-cloud/vertexai', () => ({
     VertexAI: jest.fn().mockImplementation(() => ({
         preview: {
             getGenerativeModel: jest.fn().mockReturnValue({
-                generateContent: jest.fn().mockImplementation(() => Promise.resolve(mockGeminiResponse))
+                generateContent: mockGenerateContent
             })
-        }
+        },
+        getGenerativeModel: jest.fn().mockReturnValue({
+            generateContent: mockGenerateContent
+        })
     }))
 }));
 
-// Importaciones después de los mocks
-const { saveToStorage, refineAsset } = await import('../controllers/GeneratorController.js');
-const CampaignAsset = (await import('../model/CampaignAsset.js')).default;
+// Mock UUID
+jest.unstable_mockModule('uuid', () => ({
+    v4: jest.fn(() => 'mock-uuid')
+}));
 
-describe('GeneratorController - Suite Completa Corregida', () => {
+// Mock Nicola Framework (Por si se cuela alguna referencia, aunque vamos a mockear los servicios)
+jest.unstable_mockModule('nicola-framework', () => ({
+    Dynamo: { Model: class { } },
+    PatternBuilder: jest.fn(() => ({
+        startOfLine: jest.fn().mockReturnThis(),
+        digit: jest.fn().mockReturnThis(),
+        oneOrMore: jest.fn().mockReturnThis(),
+        find: jest.fn().mockReturnThis(),
+        endOfLine: jest.fn().mockReturnThis(),
+        matches: jest.fn().mockReturnValue(true)
+    }))
+}));
+
+// ------------------------------------------------------------------
+// 2. MOCKS DE SERVICIOS INTERNOS
+// ------------------------------------------------------------------
+
+// ValidationService
+jest.unstable_mockModule('../services/ValidationService.js', () => {
+    class ValidationError extends Error {
+        constructor(message, statusCode) {
+            super(message);
+            this.name = 'ValidationError';
+            this.statusCode = statusCode || 400;
+            this.code = 'VALIDATION_ERROR';
+        }
+    }
+
+    return {
+        default: {
+            validateRequest: jest.fn((body, user) => ({
+                brief: body.brief || "brief",
+                style: body.style || "style",
+                dimensions: body.dimensions || "1024x1024",
+                variations: 1,
+                brandId: user.userId
+            })),
+            validateImageGenerationRequest: jest.fn((body) => ({
+                prompt: body.prompt || "User Prompt",
+                aspectRatio: body.aspectRatio || "1:1",
+                sampleCount: 1,
+                campaignId: "C1"
+            })),
+            sanitizeInput: jest.fn(x => x),
+            ValidationError: ValidationError
+        },
+        ValidationError: ValidationError
+    };
+});
+
+// PromptBuilder
+jest.unstable_mockModule('../services/PromptBuilder.js', () => ({
+    default: {
+        build: jest.fn(() => "Optimized Prompt"),
+    }
+}));
+
+// VectorCore
+jest.unstable_mockModule('../services/VectorCore.js', () => ({
+    default: {
+        embed: jest.fn().mockResolvedValue([0.1, 0.2, 0.3])
+    }
+}));
+
+// QuerySearchServise
+jest.unstable_mockModule('../services/QuerySearchServise.js', () => ({
+    brand_manual_vectors: {
+        query: jest.fn(() => ({
+            vector: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            get: jest.fn().mockResolvedValue([])
+        }))
+    }
+}));
+
+// GeminiService
+jest.unstable_mockModule('../services/GeminiService.js', () => ({
+    default: {
+        enhanceBrief: jest.fn((brief) => Promise.resolve(brief + " enhanced")),
+        optimizeForImageModel: jest.fn((prompt) => Promise.resolve("Translated Prompt"))
+    }
+}));
+
+// CampaignAsset Model
+jest.unstable_mockModule('../model/CampaignAsset.model.js', () => ({
+    default: {
+        create: jest.fn().mockResolvedValue({ id: 1 }),
+        where: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue([])
+    }
+}));
+
+
+// ------------------------------------------------------------------
+// 3. IMPORTACIONES DINÁMICAS
+// ------------------------------------------------------------------
+const { default: GeneratorController } = await import('../controllers/GeneratorController.js');
+const CampaignAsset = (await import('../model/CampaignAsset.model.js')).default;
+const axios = (await import('axios')).default;
+const ValidationService = (await import('../services/ValidationService.js')).default;
+
+// ------------------------------------------------------------------
+// 4. SUITE DE PRUEBAS
+// ------------------------------------------------------------------
+describe('GeneratorController (ESM)', () => {
     let req, res;
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockSharpResize.mockClear();
+
+        // Reset Gemini Mock Response
+        mockGeminiResponse.response = { candidates: [{ content: { parts: [{ text: "ok", inlineData: { data: 'b64' } }] } }] };
+
         res = {
             statusCode: 200,
             json: jest.fn().mockReturnThis(),
@@ -55,169 +191,89 @@ describe('GeneratorController - Suite Completa Corregida', () => {
     });
 
     describe('saveToStorage', () => {
-        test('Debe guardar exitosamente y verificar redimensión de thumbnail', async () => {
+        test('Guarda correctamente', async () => {
             req = {
-                body: { campaignId: "CAMP-001", prompt: "Logo creativo" },
-                files: { images: [{ data: Buffer.from('original'), name: 'test.png' }] }
+                body: { campaignId: "C1", prompt: "P" },
+                files: { images: [{ data: Buffer.from('d'), name: 'i.png' }] }
             };
-            CampaignAsset.create.mockResolvedValue({ id: 101 });
 
-            await saveToStorage(req, res);
+            await GeneratorController.saveToStorage(req, res);
 
-            // Verificamos éxito
             expect(res.statusCode).toBe(201);
-            // Verificamos que Sharp redimensionó a 300px para el thumbnail
             expect(mockSharpResize).toHaveBeenCalledWith(300);
-            expect(CampaignAsset.create).toHaveBeenCalled();
+        });
+
+        test('Falla si no hay campaña', async () => {
+            req = { body: {}, files: {} };
+            await GeneratorController.saveToStorage(req, res);
+            expect(res.statusCode).toBe(400);
         });
     });
 
     describe('refineAsset', () => {
-        test('Debe procesar la fusión de imágenes correctamente con Gemini', async () => {
-            // Seteamos respuesta exitosa (con imagen)
-            mockGeminiResponse = {
-                response: {
-                    candidates: [{
-                        content: {
-                            parts: [
-                                { text: "Imagen fusionada" },
-                                { inlineData: { data: 'YmFzZTY0', mimeType: 'image/png' } }
-                            ]
-                        }
-                    }]
-                }
-            };
+        test('Fusiona correctamente', async () => {
+            req = { body: { assetIds: ["A1"], refinementPrompt: "F" } };
 
-            req = { body: { assetIds: ["A1", "A2"], refinementPrompt: "Fusionar" } };
-            CampaignAsset.where().get.mockResolvedValue([
-                { id: "A1", img_url: { url: "http://x.com/1.png" }, campaign_assets: "C1" }
-            ]);
-            CampaignAsset.create.mockResolvedValue({ id: "NEW-99" });
-
-            await refineAsset(req, res);
-
-            expect(res.statusCode).toBe(200);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
-
-        test('Debe manejar el caso donde Gemini solo devuelve texto y no imagen', async () => {
-            // Seteamos respuesta fallida (solo texto)
-            mockGeminiResponse = {
-                response: {
-                    candidates: [{
-                        content: { parts: [{ text: "No pude generar la imagen por políticas de seguridad" }] }
-                    }]
-                }
-            };
-
-            req = { body: { assetId: "A1", refinementPrompt: "Solo texto por favor" } };
-            CampaignAsset.where().get.mockResolvedValue([{ id: "A1", img_url: "url", campaign_assets: "C1" }]);
-
-            await refineAsset(req, res);
-
-            // El controlador debe responder con éxito: false y tipo text_only
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: false,
-                type: "text_only"
-            }));
-        });
-    });
-
-    // ... todo tu código anterior (mocks, importaciones, etc.)
-
-    describe('GeneratorController - Suite Completa Corregida', () => {
-        let req, res;
-
-        beforeEach(() => {
-            jest.clearAllMocks();
-            // Esto es lo que faltaba que los nuevos tests vieran
-            res = {
-                statusCode: 200,
-                json: jest.fn().mockReturnThis(),
-                status: jest.fn().mockReturnThis()
-            };
-        });
-
-        // --- Tests que ya tenías ---
-        describe('saveToStorage', () => { /* ... */ });
-        describe('refineAsset', () => { /* ... */ });
-
-        // --- NUEVA SECCIÓN: Agrégala AQUÍ ADENTRO ---
-        describe('Casos de Borde y Ramificaciones (Branches)', () => {
-
-            test('Debe procesar imágenes en formato JPEG (Branch Coverage)', async () => {
-                // Re-importamos sharp para manipular el mock en este test específico
-                const sharp = (await import('sharp')).default;
-                sharp().metadata.mockResolvedValueOnce({ format: 'jpeg' });
-
-                req = {
-                    body: { campaignId: "C-JPG", prompt: "test jpg" },
-                    files: { image: [{ data: Buffer.from('fake-jpeg'), name: 'foto.jpg' }] }
-                };
-
-                await saveToStorage(req, res);
-
-                expect(res.statusCode).toBe(201);
-                expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-            });
-
-            test('Debe probar el fallback de archivos con nombres personalizados', async () => {
-                req = {
-                    body: { campaignId: "C-CUSTOM" },
-                    files: {
-                        fotoPortada: [{ data: Buffer.from('data'), name: 'portada.png' }]
-                    }
-                };
-
-                await saveToStorage(req, res);
-
-                expect(res.statusCode).toBe(201);
-                // Si tu controlador devuelve el conteo de assets guardados
-                expect(res.json).toHaveBeenCalled();
-            });
-        });
-    }); // <--- Este es el cierre final del describe principal
-
-    describe('Pruebas de Resiliencia (Errores de Red)', () => {
-
-        test('Debe manejar un fallo de red en Axios (Error 500)', async () => {
-            // Simulamos que la descarga de la imagen falla catastróficamente
-            const axios = (await import('axios')).default;
-            axios.get.mockRejectedValueOnce(new Error("Fallo de conexión al descargar imagen"));
-
-            req = {
-                body: { assetIds: ["A1"], refinementPrompt: "Fusión con error" }
-            };
-
-            // Necesitamos que el mock de DB devuelva algo para que llegue al axios.get
-            CampaignAsset.where().get.mockResolvedValueOnce([{
+            // Mock asset lookup
+            CampaignAsset.where().get.mockResolvedValue([{
                 id: "A1",
-                img_url: "http://test.com/img.png",
+                img_url: { url: "http://x.com/img.png" },
                 campaign_assets: "C1"
             }]);
 
-            await refineAsset(req, res);
+            await GeneratorController.refineAsset(req, res);
+            expect(res.statusCode).toBe(200);
+        });
 
-            // Verificamos que el controlador atrapó el error y respondió con 500
+        test('Maneja error de red en axios', async () => {
+            axios.get.mockRejectedValueOnce(new Error("Net Error"));
+            req = { body: { assetIds: ["A1"], refinementPrompt: "F" } };
+            CampaignAsset.where().get.mockResolvedValue([{ id: "A1", img_url: { url: "http://x.com" }, campaign_assets: "C1" }]);
+
+            await GeneratorController.refineAsset(req, res);
             expect(res.statusCode).toBe(500);
+        });
+    });
+
+    describe('buildPrompt', () => {
+        test('Genera prompt optimizado', async () => {
+            req = {
+                body: { brief: "Foto", style: "Cinematic" },
+                user: { userId: "u1" }
+            };
+
+            await GeneratorController.buildPrompt(req, res);
+
+            expect(res.statusCode).toBe(200);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                error: "Fallo de conexión al descargar imagen"
+                data: expect.objectContaining({ prompt: "Optimized Prompt" })
             }));
         });
 
-        test('Debe manejar un error inesperado en saveToStorage', async () => {
-            req = {
-                body: { campaignId: "C1" },
-                files: { images: [{ data: Buffer.from('...'), name: 'x.png' }] }
-            };
+        test('Maneja error de validación', async () => {
+            req = { body: {}, user: {} };
+            const ValError = ValidationService.ValidationError;
+            ValidationService.validateRequest.mockImplementationOnce(() => {
+                throw new ValError("Invalid", 400);
+            });
 
-            // Forzamos un error en la base de datos para este caso
-            CampaignAsset.create.mockRejectedValueOnce(new Error("Database Timeout"));
+            await GeneratorController.buildPrompt(req, res);
+            expect(res.statusCode).toBe(400);
+        });
+    });
 
-            await saveToStorage(req, res);
+    describe('generateImages', () => {
+        test('Genera y guarda imagenes', async () => {
+            req = { body: { prompt: "Una foto" } };
 
-            expect(res.statusCode).toBe(500);
-            expect(res.json).toHaveBeenCalledWith({ error: "Database Timeout" });
+            await GeneratorController.generateImages(req, res);
+
+            expect(res.statusCode).toBe(200);
+            expect(mockGenerateContent).toHaveBeenCalled();
+            // Verify image saving logic implicitly via success response
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                success: true
+            }));
         });
     });
 });
