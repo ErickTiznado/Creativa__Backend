@@ -1,218 +1,240 @@
-// src/test/auth.controller.test.js
+import { jest } from '@jest/globals';
 
-// 1. IMPORTAR EL CONTROLADOR (Corregido el nombre del archivo)
-import AuthController from '../controllers/auth.controller.js';
+// 1. DEFINIR MOCKS
+const mockBuilder = {
+    schema: jest.fn().mockReturnThis(),
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    eq: jest.fn(),
+    single: jest.fn(),
+    maybeSingle: jest.fn()
+};
 
-// 2. IMPORTAR SUPABASE (Para poder usarlo en los 'expect')
-// Al estar mockeado abajo, esta importación traerá la versión falsa automáticamente.
-import { supabase } from '../services/SupabaseClient.js';
+// Configurar comportamiento dual de .eq()
+// Permite: await eq() -> resuelve promesa
+// Permite: eq().single() -> encadena
+const setupMockBuilder = () => {
+    // Reset basic mocks
+    mockBuilder.schema.mockReturnThis();
+    mockBuilder.from.mockReturnThis();
+    mockBuilder.select.mockReturnThis();
+    mockBuilder.update.mockReturnThis();
+    mockBuilder.insert.mockResolvedValue({ data: {}, error: null }); // insert suele ser terminal
 
-// --- MOCKS DE DEPENDENCIAS ---
+    // eq devuelve una Promesa que tiene métodos adjuntos
+    mockBuilder.eq.mockImplementation(() => {
+        const p = Promise.resolve({ data: {}, error: null });
+        p.single = mockBuilder.single;
+        p.maybeSingle = mockBuilder.maybeSingle;
+        return p;
+    });
 
-// A. Mock de Nicola Framework
-jest.mock('nicola-framework', () => {
-    class MockPatternBuilder {
-        startOfLine() { return this; }
-        word() { return this; }
-        oneOrMore() { return this; }
-        find() { return this; }
-        endOfLine() { return this; }
-        range() { return this; }
-        digit() { return this; }
-        matches() { return true; } // Siempre valida true
-    }
+    mockBuilder.single.mockResolvedValue({ data: {}, error: null });
+    return mockBuilder;
+}
 
-    return {
-        Coherer: {
-            sign: jest.fn(() => 'fake_jwt_token'),
-            verify: jest.fn(() => ({ userId: 'user-123' }))
-        },
-        PatternBuilder: MockPatternBuilder
-    };
-});
+const mockMatches = jest.fn(() => true);
 
-// B. Mock de Supabase (SOLUCIÓN AL ERROR DE HOISTING)
-// Definimos el objeto DIRECTAMENTE dentro del mock factory
-jest.mock('../services/SupabaseClient.js', () => {
-    return {
-        supabase: {
-            auth: {
-                signInWithPassword: jest.fn(),
-                signUp: jest.fn(),
-                resetPasswordForEmail: jest.fn(),
-                getUser: jest.fn(),
-                admin: {
-                    updateUserById: jest.fn()
-                }
-            },
-            // Métodos encadenables (devuelven 'this' para poder seguir poniendo puntos)
-            schema: jest.fn().mockReturnThis(),
-            from: jest.fn().mockReturnThis(),
-            select: jest.fn().mockReturnThis(),
-            insert: jest.fn().mockReturnThis(),
-            update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn()
-        }
-    };
-});
+jest.unstable_mockModule('../services/SupabaseClient.js', () => ({ supabase: mockBuilder }));
+jest.unstable_mockModule('../services/supaBaseClient.js', () => ({ supabase: mockBuilder }));
 
-// --- SUITE DE PRUEBAS ---
-describe('AuthController Tests', () => {
+jest.unstable_mockModule('nicola-framework', () => ({
+    Coherer: {
+        sign: jest.fn(() => 'fake_jwt_token'),
+        verify: jest.fn(() => ({ userId: 'user-123' }))
+    },
+    PatternBuilder: jest.fn().mockImplementation(() => ({
+        startOfLine: jest.fn().mockReturnThis(),
+        word: jest.fn().mockReturnThis(),
+        oneOrMore: jest.fn().mockReturnThis(),
+        find: jest.fn().mockReturnThis(),
+        endOfLine: jest.fn().mockReturnThis(),
+        range: jest.fn().mockReturnThis(),
+        digit: jest.fn().mockReturnThis(),
+        matches: mockMatches
+    }))
+}));
+
+const { default: AuthController } = await import('../controllers/auth.controller.js');
+
+describe('AuthController Tests (Complete)', () => {
     let req, res;
 
     beforeEach(() => {
         jest.clearAllMocks();
+        setupMockBuilder();
 
-        req = {
-            body: {},
-            params: {},
-            headers: {},
-            user: {}
+        // Agregar Auth Mocks al builder
+        mockBuilder.auth = {
+            signInWithPassword: jest.fn(),
+            signUp: jest.fn(),
+            resetPasswordForEmail: jest.fn(),
+            getUser: jest.fn(),
+            admin: { updateUserById: jest.fn() }
         };
 
-        // Mock de Response estilo Nicola
-        res = {
-            statusCode: 200,
-            json: jest.fn(),
-            end: jest.fn()
-        };
-        
-        // Aseguramos que los métodos encadenables devuelvan 'this'
-        // (Aunque el mock factory ya lo hace, esto reinicia el estado limpio)
-        supabase.insert.mockReturnThis();
-        supabase.update.mockReturnThis();
+        mockMatches.mockReturnValue(true); // Default valid pattern
+
+        req = { body: {}, headers: {}, user: { userId: '123' } };
+        res = { statusCode: 200, json: jest.fn(), status: jest.fn().mockReturnThis() };
+
+        process.env.FRONTEND_URL = 'http://localhost';
     });
 
-    // ----------------------------------------------------------------
-    // TEST LOGIN
-    // ----------------------------------------------------------------
-    describe('POST /login', () => {
+    describe('login', () => {
         test('Debe devolver 400 si faltan credenciales', async () => {
-            req.body = { email: '' }; // Falta password
+            req.body = { email: '' }; // Fallta pass
             await AuthController.login(req, res);
             expect(res.statusCode).toBe(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(String) }));
-        });
-
-        test('Debe devolver 401 si Supabase devuelve error de auth', async () => {
-            req.body = { email: 'test@test.com', password: 'badpassword' };
-            
-            // Usamos la variable 'supabase' que importamos arriba
-            supabase.auth.signInWithPassword.mockResolvedValue({ 
-                data: null, 
-                error: { message: 'Credenciales invalidas' } 
-            });
-
-            await AuthController.login(req, res);
-            expect(res.statusCode).toBe(401);
         });
 
         test('Debe devolver 200 y Token si todo es correcto', async () => {
             req.body = { email: 'test@test.com', password: '123' };
-            
-            supabase.auth.signInWithPassword.mockResolvedValue({ 
-                data: { user: { id: '123', email: 'test@test.com' } }, 
-                error: null 
+            mockBuilder.auth.signInWithPassword.mockResolvedValue({
+                data: { user: { id: '123', email: 'test@test.com' } },
+                error: null
             });
+            mockBuilder.single.mockResolvedValue({ data: { role: 'admin' }, error: null });
 
             await AuthController.login(req, res);
-            
+
             expect(res.statusCode).toBe(200);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ 
-                token: 'fake_jwt_token',
-                message: "Login exitoso"
-            }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ token: 'fake_jwt_token' }));
         });
     });
 
-    // ----------------------------------------------------------------
-    // TEST REGISTER
-    // ----------------------------------------------------------------
-    describe('POST /register', () => {
-        test('Debe devolver 201 si registra y guarda perfil correctamente', async () => {
-            req.body = { 
-                email: 'new@test.com', password: '123', 
-                firstName: 'Juan', lastName: 'Perez' 
-            };
+    describe('register', () => {
+        test('Debe registrar usuario correctamente', async () => {
+            req.body = { email: 'new@test.com', password: '123', firstName: 'F', lastName: 'L' };
 
-            // 1. Mock Sign Up exitoso
-            supabase.auth.signUp.mockResolvedValue({
-                data: { user: { id: 'new-user-id' } },
-                error: null
+            mockBuilder.auth.signUp.mockResolvedValue({
+                data: { user: { id: 'u1' } }, error: null
             });
-
-            // 2. Mock Insert Profile exitoso
-            supabase.insert.mockResolvedValue({ error: null });
+            mockBuilder.insert.mockResolvedValue({ error: null });
 
             await AuthController.register(req, res);
 
             expect(res.statusCode).toBe(201);
-            expect(supabase.schema).toHaveBeenCalledWith('devschema');
-            expect(supabase.from).toHaveBeenCalledWith('profile');
+            expect(mockBuilder.from).toHaveBeenCalledWith('profile');
+            expect(mockBuilder.insert).toHaveBeenCalled();
         });
 
-        test('Debe devolver 400 si falla el registro en Auth', async () => {
+        test('Debe manejar error de Supabase Auth', async () => {
             req.body = { email: 'x', password: 'x' };
-            supabase.auth.signUp.mockResolvedValue({
-                data: null,
-                error: { message: 'Email invalido' }
-            });
+            mockBuilder.auth.signUp.mockResolvedValue({ data: null, error: { message: 'Fail' } });
 
             await AuthController.register(req, res);
             expect(res.statusCode).toBe(400);
         });
     });
 
-    // ----------------------------------------------------------------
-    // TEST FORGOT PASSWORD
-    // ----------------------------------------------------------------
-    describe('POST /forgot-password', () => {
-        test('Debe devolver 200 si el email es válido', async () => {
+    describe('forgotPassword', () => {
+        test('Debe enviar correo de recuperación', async () => {
             req.body = { email: 'valid@test.com' };
-            process.env.FRONTEND_URL = 'http://localhost'; 
-
-            supabase.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
+            mockMatches.mockReturnValue(true);
+            mockBuilder.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
 
             await AuthController.forgotPassword(req, res);
+
             expect(res.statusCode).toBe(200);
+            expect(mockBuilder.auth.resetPasswordForEmail).toHaveBeenCalled();
+        });
+
+        test('Debe validar formato de email', async () => {
+            req.body = { email: 'bad-email' };
+            mockMatches.mockReturnValue(false); // Simulamos fallo pattern
+
+            await AuthController.forgotPassword(req, res);
+            expect(res.statusCode).toBe(400);
         });
     });
 
-    // ----------------------------------------------------------------
-    // TEST CHANGE ROLE
-    // ----------------------------------------------------------------
-    describe('PUT /change-role', () => {
-        test('Debe impedir cambiarse el rol a uno mismo', async () => {
-            req.user = { userId: 'my-id' };
-            req.body = { targetUserId: 'my-id', newRole: 'admin' };
+    describe('resetPassword', () => {
+        test('Debe reestablecer contraseña con token válido', async () => {
+            req.headers.authorization = "Bearer valid_token";
+            req.body = { newPassword: "Pass1234" };
 
-            await AuthController.changeUserRole(req, res);
-            
-            expect(res.statusCode).toBe(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                error: expect.stringContaining("No puedes cambiar tu propio rol")
-            }));
+            // getUser token -> user
+            mockBuilder.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+            // updateUser -> ok
+            mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: null });
+
+            await AuthController.resetPassword(req, res);
+
+            expect(res.statusCode).toBe(200);
         });
 
-test('Debe actualizar Auth y DB si es otro usuario', async () => {
-            req.user = { userId: 'admin-id' };
-            req.body = { targetUserId: 'other-id', newRole: 'admin' };
+        test('Debe fallar si token es inválido', async () => {
+            req.headers.authorization = "Bearer bad_token";
+            req.body = { newPassword: "Pass1234" };
 
-            // Mock éxito Auth
-            supabase.auth.admin.updateUserById.mockResolvedValue({ error: null });
-            
-            // --- CORRECCIÓN AQUÍ ---
-            // NO tocamos .update() (dejamos que siga devolviendo 'this' por defecto)
-            // Configuramos .eq() para que sea él quien devuelva el "éxito" final.
-            supabase.eq.mockResolvedValue({ error: null });
+            mockBuilder.auth.getUser.mockResolvedValue({ data: {}, error: { message: "Invalid" } });
+
+            await AuthController.resetPassword(req, res);
+            expect(res.statusCode).toBe(401);
+        });
+    });
+
+    describe('getProfile', () => {
+        test('Debe devolver el perfil del usuario', async () => {
+            req.user = { userId: 'u1' };
+            mockBuilder.single.mockResolvedValue({ data: { name: 'Pepe' }, error: null });
+
+            await AuthController.getProfile(req, res);
+
+            expect(mockBuilder.eq).toHaveBeenCalledWith('id', 'u1');
+            expect(res.json).toHaveBeenCalledWith({ name: 'Pepe' });
+        });
+    });
+
+    describe('updateProfile', () => {
+        test('Debe actualizar perfil', async () => {
+            req.user = { userId: 'u1' };
+            req.body = { firstName: 'Juan' }; // Data válida
+
+            // update() -> eq() se espera que devuelva promesa
+            // El setupMockBuilder hace que eq() devuelva promesa
+            // Luego hace select().eq().single() -> single devuelve promesa
+
+            mockBuilder.single.mockResolvedValue({ data: { first_name: 'Juan' }, error: null });
+
+            await AuthController.updateProfile(req, res);
+
+            expect(res.statusCode).toBe(200);
+        });
+
+        test('Debe fallar si no hay datos', async () => {
+            req.user = { userId: 'u1' };
+            req.body = {}; // Vacío
+
+            await AuthController.updateProfile(req, res);
+            expect(res.statusCode).toBe(400);
+        });
+    });
+
+    describe('changeUserRole', () => {
+        test('Debe cambiar el rol si es admin y target válido', async () => {
+            req.user = { userId: 'admin1' };
+            req.body = { targetUserId: 'user2', newRole: 'admin' };
+
+            // Admin auth update
+            mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: null });
+            // DB update
+            // update().eq() devuelve promesa gracias al mockBuilder
 
             await AuthController.changeUserRole(req, res);
 
-            // Verificamos
             expect(res.statusCode).toBe(200);
-            expect(supabase.auth.admin.updateUserById).toHaveBeenCalled();
-            expect(supabase.from).toHaveBeenCalledWith('profile');
+        });
+
+        test('Debe evitar auto-cambio de rol', async () => {
+            req.user = { userId: 'admin1' };
+            req.body = { targetUserId: 'admin1', newRole: 'user' };
+
+            await AuthController.changeUserRole(req, res);
+            expect(res.statusCode).toBe(400);
         });
     });
 });

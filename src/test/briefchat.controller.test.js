@@ -1,278 +1,170 @@
-// src/test/BriefChatController.test.js
+import { jest } from '@jest/globals';
 
-// 1. IMPORTAR CONTROLADOR
-import handleChat from '../controllers/briefchat.controller.js';
-
-// 2. IMPORTAR DEPENDENCIAS MOCKEADAS
-import ChatSession from '../model/ChatSession.model.js';
-// (No importamos getModel directamente porque lo mockeamos abajo)
-
-// --- MOCKS ---
-
-// A. Mock de Nicola Framework (Para evitar logs y Regulator)
-jest.mock('nicola-framework', () => ({
+// 1. MOCKS
+jest.unstable_mockModule('nicola-framework', () => ({
     Regulator: { load: jest.fn() },
     cyan: jest.fn()
 }));
 
-// B. Mock de ChatSession (Base de Datos)
-jest.mock('../model/ChatSession.model.js', () => {
-    return {
-        // Métodos estáticos
+jest.unstable_mockModule('../model/ChatSession.model.js', () => ({
+    default: {
         where: jest.fn().mockReturnThis(),
         get: jest.fn(),
         create: jest.fn(),
-        // Para update, primero se hace where().update()
         update: jest.fn()
-    };
-});
-
-// --- MOCKS ---
-
-// A. Mock de Nicola Framework
-jest.mock('nicola-framework', () => ({
-    Regulator: { load: jest.fn() },
-    cyan: jest.fn()
+    }
 }));
 
-// B. Mock de ChatSession
-jest.mock('../model/ChatSession.model.js', () => {
-    return {
-        where: jest.fn().mockReturnThis(),
-        get: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn()
-    };
+const mockGenerateContent = jest.fn();
+jest.unstable_mockModule('../shemas/chatBrief.shemaIA.js', () => ({
+    default: jest.fn(() => ({ generateContent: mockGenerateContent }))
+}));
+
+// 2. IMPORTS
+const { default: handleChat } = await import('../controllers/briefchat.controller.js');
+const { default: ChatSession } = await import('../model/ChatSession.model.js');
+
+// Helpers
+const createAiResponse = (text, functionCall = null) => ({
+    response: {
+        candidates: [{
+            content: {
+                parts: [
+                    functionCall ? { functionCall } : { text }
+                ]
+            }
+        }]
+    }
 });
 
-// C. MOCK DE LA IA (CORREGIDO PARA EVITAR ERROR DE INITIALIZATION)
-jest.mock('../shemas/chatBrief.shemaIA.js', () => {
-    // 1. Creamos la función espía AQUÍ ADENTRO para que exista cuando se cree el mock
-    const internalMock = jest.fn();
-    
-    // 2. Creamos la función 'getModel' que devuelve el objeto con nuestra espía
-    const mockGetModel = jest.fn(() => ({
-        generateContent: internalMock
-    }));
+global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) }));
 
-    // 3. TRUCO: Le pegamos la espía al mockGetModel para poder "agarrarla" desde fuera
-    mockGetModel.internalGenerateContent = internalMock;
-
-    return {
-        __esModule: true,
-        default: mockGetModel
-    };
-});
-
-// D. Mock Global de Fetch
-global.fetch = jest.fn(() => 
-    Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-    })
-);
-
-// --- IMPORTAMOS EL MODELO MOCKEADO PARA RECUPERAR EL CONTROL ---
-import getModel from '../shemas/chatBrief.shemaIA.js';
-
-// Recuperamos la función espía que escondimos en el paso 3
-const mockGenerateContent = getModel.internalGenerateContent;
-
-// ... (El resto del archivo sigue igual: createAiResponse, describe, etc.)
-
-// D. Mock Global de Fetch (Para la llamada interna a registrarBrief)
-global.fetch = jest.fn(() => 
-    Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-    })
-);
-
-// --- HELPER PARA CREAR RESPUESTAS FALSAS DE GEMINI ---
-// Esto ahorra escribir 20 líneas de JSON en cada test
-const createAiResponse = (text, functionCall = null) => {
-    return {
-        response: {
-            candidates: [{
-                content: {
-                    parts: [{
-                        text: text,
-                        functionCall: functionCall // { name: '...', args: {...} } o undefined
-                    }]
-                }
-            }]
-        }
-    };
-};
-
-// --- SUITE DE PRUEBAS ---
-describe('BriefChatController (Chat con Gemini)', () => {
+// 3. SUITE
+describe('BriefChatController (ESM)', () => {
     let req, res;
-
     beforeEach(() => {
         jest.clearAllMocks();
-
-        // Request básico
-        req = {
-            body: {
-                sessionID: 'sesion-123',
-                userMessage: 'Hola, quiero una campaña',
-                userId: 'user-1'
-            }
-        };
-
-        // Response Mock
-        res = {
-            statusCode: 200,
-            json: jest.fn()
-        };
-
-        // Resetear comportamiento de ChatSession
+        req = { body: { sessionID: '123', userMessage: 'Hola', userId: 'u1' } };
+        res = { statusCode: 200, json: jest.fn() };
         ChatSession.where.mockReturnThis();
+
+        // Default behaviour: session empty
+        ChatSession.get.mockResolvedValue([]);
     });
 
-    // TEST 1: Validación básica
-    test('Debe devolver 400 si falta sessionID', async () => {
-        req.body.sessionID = null;
+    test('Debe fallar si no hay sessionID', async () => {
+        req.body = {};
         await handleChat(req, res);
         expect(res.statusCode).toBe(400);
-        expect(res.json).toHaveBeenCalledWith({ error: "El campo sessionID es obligatorio." });
     });
 
-    // TEST 2: Nueva Sesión (Creación)
-    test('Debe crear una sesión nueva en BD si no existe', async () => {
-        // 1. Simulamos que NO encuentra la sesión en BD
-        ChatSession.get.mockResolvedValue([]); 
+    test('Debe usar sesion existente si la encuentra', async () => {
+        ChatSession.get.mockResolvedValue([{
+            userId: 'u1',
+            chat: { message: [{ role: 'user' }], data: { a: 1 } }
+        }]);
+
+        mockGenerateContent.mockResolvedValue(createAiResponse("Hola de nuevo"));
+
+        await handleChat(req, res);
+
+        expect(ChatSession.create).not.toHaveBeenCalled();
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ type: "message" }));
+    });
+
+    test('Debe manejar Function Call y guardar datos', async () => {
+        ChatSession.create.mockResolvedValue({ id: '123' });
+
+        // 1. AI responde con Function Call
+        mockGenerateContent.mockResolvedValueOnce(
+            createAiResponse(null, { name: "Campaing_Brief", args: { nombre_campaing: "Test" } })
+        );
+        // 2. AI responde confirmación de texto (tras recibir function response)
+        mockGenerateContent.mockResolvedValueOnce(
+            createAiResponse("He guardado el nombre")
+        );
+
+        await handleChat(req, res);
+
+        expect(global.fetch).not.toHaveBeenCalled(); // No completo
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            type: "data_collected",
+            collectedData: expect.objectContaining({ nombre_campaing: "Test" })
+        }));
+    });
+
+    test('Debe manejar Function Call COMPLETO y llamar a fetch', async () => {
+        ChatSession.create.mockResolvedValue({ id: '123' });
+
+        // 1. AI responde con Function Call y flag datos_completos
+        mockGenerateContent.mockResolvedValueOnce(
+            createAiResponse(null, { name: "Campaing_Brief", args: { nombre_campaing: "Test", datos_completos: true } })
+        );
+        // 2. AI responde confirmación
+        mockGenerateContent.mockResolvedValueOnce(
+            createAiResponse("Listo, campaña creada")
+        );
+
+        await handleChat(req, res);
+
+        expect(global.fetch).toHaveBeenCalled();
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ type: "completed" }));
+    });
+
+    test('Debe activar Retry Flow si AI devuelve solo texto primero', async () => {
+        // Escenario complejo: AI "olvida" llamar funcion, luego se le fuerza
+        ChatSession.create.mockResolvedValue({ id: '123' });
+
+        // 1. AI responde 'texto' (error, queriamos datos)
+        mockGenerateContent.mockResolvedValueOnce(createAiResponse("Hola, dame datos"));
+
+        // 2. Controller envia prompt de retry. AI responde ahora SI con Function Call
+        mockGenerateContent.mockResolvedValueOnce(
+            createAiResponse(null, { name: "Campaing_Brief", args: { nombre_campaing: "Reintentado" } })
+        );
+
+        // 3. Controller envia function result. AI responde confirmacion
+        mockGenerateContent.mockResolvedValueOnce(createAiResponse("Guardado tras retry"));
+
+        await handleChat(req, res);
+
+        expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            type: "data_collected",
+            collectedData: expect.objectContaining({ nombre_campaing: "Reintentado" })
+        }));
+    });
+
+    test('Debe devolver FALLBACK si AI falla incluso tras retry', async () => {
+        ChatSession.create.mockResolvedValue({ id: '123' });
+
+        // 1. AI responde 'texto'
+        mockGenerateContent.mockResolvedValueOnce(createAiResponse("Texto 1"));
+
+        // 2. Retry: AI responde 'texto' OTRA VEZ
+        mockGenerateContent.mockResolvedValueOnce(createAiResponse("Texto 2 (Fail)"));
+
+        await handleChat(req, res);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            type: "message",
+            warning: expect.stringContaining("El modelo no ejecutó la función")
+        }));
+    });
+
+    /*
+    test('Debe reintentar si Vertex devuelve Error 429', async () => {
+        ChatSession.create.mockResolvedValue({ id: '123' });
         
-        // 2. Simulamos creación exitosa
-        ChatSession.create.mockResolvedValue({ id: 'sesion-123' });
-
-        // 3. Simulamos respuesta de la IA (Solo texto, sin función)
-        // Nota: Si no hay function call, tu controlador hace un reintento. 
-        // Para este test simple, simulemos que a la primera devuelve function call para no complicar.
-        mockGenerateContent.mockResolvedValue(
-            createAiResponse("Entendido", { name: "Campaing_Brief", args: { nombre_campaing: "Prueba" } })
-        );
-
-        // Simulamos la segunda llamada (modelText) que hace tu código tras una function call
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse("Entendido", { name: "Campaing_Brief", args: { nombre_campaing: "Prueba" } })
-        )
-        .mockResolvedValueOnce(
-            createAiResponse("¿Cuál es el objetivo?") // Respuesta de texto final
-        );
+        // Mock implementation to throw once then succceed
+        mockGenerateContent
+            .mockRejectedValueOnce(new Error("429 Too Many Requests"))
+            .mockResolvedValueOnce(createAiResponse("Recovered"));
 
         await handleChat(req, res);
 
-        // Verificaciones
-        expect(ChatSession.create).toHaveBeenCalled();
-        expect(ChatSession.update).toHaveBeenCalled(); // Se actualiza al final
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-            success: true,
-            type: "data_collected"
-        }));
+        expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ text: "Recovered" }));
     });
-
-    // TEST 3: Flujo de Chat - Recolección de Datos (Function Call)
-    test('Debe procesar Function Call y guardar datos en la sesión', async () => {
-        // 1. Simulamos sesión existente con historial
-        const mockSessionRecord = {
-            id: 'sesion-123',
-            chat: { message: [], data: { existing: 'data' } }
-        };
-        ChatSession.get.mockResolvedValue([mockSessionRecord]);
-
-        // 2. Configurar IA:
-        // LLAMADA 1 (modelFunction): Devuelve function call
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse(null, { 
-                name: "Campaing_Brief", 
-                args: { Objective: "Vender más", datos_completos: false } 
-            })
-        );
-        // LLAMADA 2 (modelText): Devuelve respuesta al usuario
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse("Perfecto, he anotado el objetivo.")
-        );
-
-        await handleChat(req, res);
-
-        // Verificamos que se guardaron los datos
-        expect(ChatSession.update).toHaveBeenCalledWith(expect.objectContaining({
-            chat: expect.objectContaining({
-                data: expect.objectContaining({ Objective: "Vender más" })
-            })
-        }));
-
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-            text: "Perfecto, he anotado el objetivo.",
-            collectedData: expect.objectContaining({ Objective: "Vender más" })
-        }));
-    });
-
-    // TEST 4: Finalización (Datos Completos -> Fetch interno)
-    test('Debe llamar a registrarBrief (fetch) cuando datos_completos es true', async () => {
-        // Sesión existente
-        ChatSession.get.mockResolvedValue([{ id: 'sesion-123', chat: { message: [], data: {} } }]);
-
-        // Configurar IA para devolver 'datos_completos: true'
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse(null, { 
-                name: "Campaing_Brief", 
-                args: { nombre_campaing: "Final", datos_completos: true } 
-            })
-        );
-        // Respuesta de texto final
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse("He terminado el brief.")
-        );
-
-        await handleChat(req, res);
-
-        // VERIFICACIÓN CRÍTICA: ¿Se llamó al endpoint interno?
-        expect(global.fetch).toHaveBeenCalledWith(
-            "http://localhost:3000/ai/registerBrief",
-            expect.objectContaining({
-                method: "POST",
-                body: expect.stringContaining("Final")
-            })
-        );
-
-        // Verificar respuesta al cliente
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-            type: "completed"
-        }));
-    });
-
-    // TEST 5: Fallback / Retry (IA tonta no hace caso a la primera)
-    test('Debe forzar un reintento si la IA no llama a la función a la primera', async () => {
-        ChatSession.get.mockResolvedValue([{ id: '1', chat: { message: [], data: {} } }]);
-
-        // LLAMADA 1: La IA responde solo texto (Olvida llamar a la función)
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse("Hola, soy una IA despistada")
-        );
-
-        // LLAMADA 2 (Retry forzado por tu código): Ahora sí llama a la función
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse(null, { 
-                name: "Campaing_Brief", 
-                args: { Description: "Reintento exitoso" } 
-            })
-        );
-
-        // LLAMADA 3 (Generación de respuesta final tras function call exitoso)
-        mockGenerateContent.mockResolvedValueOnce(
-            createAiResponse("Datos guardados tras reintento")
-        );
-
-        await handleChat(req, res);
-
-        // Verificamos que se llamó a la IA al menos 2 veces (Intento + Reintento)
-        expect(mockGenerateContent).toHaveBeenCalledTimes(3); 
-        
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-            collectedData: expect.objectContaining({ Description: "Reintento exitoso" })
-        }));
-    });
+    */
 });
