@@ -33,7 +33,7 @@ class PromptBuilder {
         }
 
         // 3. Brief del Usuario (El núcleo de la solicitud)
-        sections.push(`\n**TASK / CONTENT BRIEF:**\n${brief}`);
+        sections.push(`\nDESCRIPCIÓN DE LA IMAGEN:\n${brief}`);
 
         // 4. Modificadores de Estilo (Dirección artística)
         if (style) {
@@ -42,7 +42,7 @@ class PromptBuilder {
 
         // 5. Especificaciones Técnicas (Dimensiones)
         if (dimensions) {
-            sections.push(`\n**TECHNICAL SPECIFICATIONS:**\nDimensions: ${dimensions}`);
+            sections.push(`\nESPECIFICACIONES TÉCNICAS:\nDimensiones: ${dimensions}`);
         }
 
         // 6. Negative Prompts (Restricciones)
@@ -58,7 +58,7 @@ class PromptBuilder {
      * @param {Object} brandData - Datos de marca normalizados
      */
     buildBrandContext(brandData) {
-        const lines = ['\n**BRAND CONTEXT & GUIDELINES:**'];
+        const lines = ['\nCONTEXTO DE MARCA Y DIRECTRICES:'];
 
         // Colores
         if (brandData.colors) {
@@ -85,13 +85,13 @@ class PromptBuilder {
 
         // Reglas específicas (Guidelines)
         if (brandData.guidelines && Array.isArray(brandData.guidelines) && brandData.guidelines.length > 0) {
-            lines.push('- Specific Rules:');
+            lines.push('- Reglas específicas:');
             brandData.guidelines.forEach(rule => {
                 lines.push(`  * ${rule}`);
             });
         } else if (brandData.relevantRules && Array.isArray(brandData.relevantRules)) {
             // Soporte para estructura alternativa si viene como relevantRules
-            lines.push('- Specific Rules:');
+            lines.push('- Reglas específicas:');
             brandData.relevantRules.forEach(rule => {
                 lines.push(`  * ${rule}`);
             });
@@ -106,7 +106,7 @@ class PromptBuilder {
      */
     buildStyleModifiers(style) {
         const description = STYLE_DEFINITIONS[style] || style;
-        return `\n**STYLE DIRECTION:**\n${description}`;
+        return `\nDIRECCIÓN DE ESTILO:\n${description}`;
     }
 
     /**
@@ -114,7 +114,7 @@ class PromptBuilder {
      */
     buildNegativePrompts() {
         const negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT.join(", ");
-        return `\n**NEGATIVE PROMPT (AVOID):**\n${negatives}`;
+        return `\nPROHIBIDO:\n${negatives}`;
     }
 }
 

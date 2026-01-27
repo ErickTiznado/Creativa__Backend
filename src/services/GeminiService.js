@@ -50,7 +50,7 @@ class GeminiService {
             2. Keep the core subject and action intact. Do not change the meaning.
             3. Use descriptive adjectives appropriate for the target style.
             4. Output ONLY the enhanced description. No introductions like "Here is the enhanced brief".
-            5. Write in English (image models understand it better), even if input is Spanish.
+            5. IMPORTANT: Write the output in SPANISH (Español) so the user can understand and edit it.
             `;
 
             const request = {
@@ -71,6 +71,37 @@ class GeminiService {
             console.error('[GeminiService] Error enhancing brief:', error);
             // Fallback silencioso: si falla la IA, usamos el brief original
             return originalBrief;
+        }
+    }
+
+    async optimizeForImageModel(spanishPrompt) {
+        try {
+            const prompt = `
+            Act as a translation engine optimized for Image Generation Models (like Midjourney, Imagen, Gemini).
+            Task: Translate and optimize the following Spanish prompt into English.
+            
+            Input (Spanish): "${spanishPrompt}"
+            
+            Rules:
+            1. Translate accurately to English.
+            2. Optimize keywords for visual clarity (e.g., use "cinematic lighting" instead of just "good light").
+            3. Keep technical parameters if present.
+            4. Output ONLY the English text.
+            `;
+
+            const request = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
+            const result = await this.generativeModel.generateContent(request);
+            const response = result.response;
+
+            if (!response.candidates || response.candidates.length === 0) return spanishPrompt; // Fallback al español si falla
+
+            const englishPrompt = response.candidates[0].content.parts[0].text.trim();
+            console.log(`[Silent Translation] ES: "${spanishPrompt.substring(0, 30)}..." -> EN: "${englishPrompt.substring(0, 30)}..."`);
+            return englishPrompt;
+
+        } catch (error) {
+            console.warn('[GeminiService] Error translating to English, using original:', error);
+            return spanishPrompt; // Si falla, usamos el español (Gemini Flash entiende español también)
         }
     }
 }
