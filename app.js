@@ -9,6 +9,7 @@
  * - /ai: Funcionalidades de chat y briefing con IA.
  * - /rag: Ingesta y consulta de bases de conocimiento (manuales).
  * - /test: Rutas de prueba para diagnóstico.
+ * - /generator: Generador de contenido.
  *
  * Nota: El servidor escucha en el puerto definido en config o 3000 por defecto.
  * ------------------------------------------------------------------
@@ -53,6 +54,10 @@ app.use("/rag", RagRoute);
 // Rutas para interacción con IA (Chats, Briefings)
 // Base URL: http://localhost:3000/ai
 app.use("/ai", chatRoutes);
+
+// Rutas para el generador de contenido
+// Base URL: http://localhost:3000/generator
+app.use("/generator", GeneratorRoutes);
 
 // Rutas de prueba (Testing)
 // Base URL: http://localhost:3000/test
