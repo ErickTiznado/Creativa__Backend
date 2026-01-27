@@ -103,6 +103,13 @@ describe('AuthController Tests (Complete)', () => {
             expect(res.statusCode).toBe(200);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ token: 'fake_jwt_token' }));
         });
+
+        test('Debe manejar error interno (500)', async () => {
+            req.body = { email: 'e', password: 'p' };
+            mockBuilder.auth.signInWithPassword.mockRejectedValue(new Error("Crash"));
+            await AuthController.login(req, res);
+            expect(res.statusCode).toBe(500);
+        });
     });
 
     describe('register', () => {
@@ -128,6 +135,17 @@ describe('AuthController Tests (Complete)', () => {
             await AuthController.register(req, res);
             expect(res.statusCode).toBe(400);
         });
+
+        test('Debe manejar error al guardar perfil (insert)', async () => {
+            req.body = { email: 'x', password: 'x' };
+            mockBuilder.auth.signUp.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+            // Mock insert failure
+            mockBuilder.insert.mockResolvedValue({ error: { message: "DB Error" } });
+
+            await AuthController.register(req, res);
+            expect(res.statusCode).toBe(500);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("falló al guardar el perfil") }));
+        });
     });
 
     describe('forgotPassword', () => {
@@ -145,9 +163,27 @@ describe('AuthController Tests (Complete)', () => {
         test('Debe validar formato de email', async () => {
             req.body = { email: 'bad-email' };
             mockMatches.mockReturnValue(false); // Simulamos fallo pattern
-
             await AuthController.forgotPassword(req, res);
             expect(res.statusCode).toBe(400);
+        });
+
+        test('Debe fallar si FRONTEND_URL no está definido', async () => {
+            req.body = { email: 'valid@test.com' };
+            delete process.env.FRONTEND_URL; // Force undefined
+
+            await AuthController.forgotPassword(req, res);
+            expect(res.statusCode).toBe(500);
+            expect(process.env.FRONTEND_URL).toBeUndefined();
+
+            process.env.FRONTEND_URL = 'http://localhost'; // Restore
+        });
+
+        test('Debe manejar error de Supabase resetPasswordForEmail', async () => {
+            req.body = { email: 'valid@test.com' };
+            mockBuilder.auth.resetPasswordForEmail.mockResolvedValue({ error: { message: "SupaFail" } });
+
+            await AuthController.forgotPassword(req, res);
+            expect(res.statusCode).toBe(500);
         });
     });
 
@@ -156,9 +192,7 @@ describe('AuthController Tests (Complete)', () => {
             req.headers.authorization = "Bearer valid_token";
             req.body = { newPassword: "Pass1234" };
 
-            // getUser token -> user
             mockBuilder.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
-            // updateUser -> ok
             mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: null });
 
             await AuthController.resetPassword(req, res);
@@ -166,14 +200,36 @@ describe('AuthController Tests (Complete)', () => {
             expect(res.statusCode).toBe(200);
         });
 
+        test('Debe fallar si contraseña es inválida (corta o incompleta)', async () => {
+            req.headers.authorization = "Bearer t";
+            req.body = { newPassword: "short" };
+            await AuthController.resetPassword(req, res);
+            expect(res.statusCode).toBe(400); // Length check
+
+            req.body = { newPassword: "password123withoutUppercase" };
+            // Assuming matches fails for pattern check
+            mockMatches.mockReturnValueOnce(false);
+            await AuthController.resetPassword(req, res);
+            expect(res.statusCode).toBe(400);
+        });
+
         test('Debe fallar si token es inválido', async () => {
             req.headers.authorization = "Bearer bad_token";
             req.body = { newPassword: "Pass1234" };
-
             mockBuilder.auth.getUser.mockResolvedValue({ data: {}, error: { message: "Invalid" } });
 
             await AuthController.resetPassword(req, res);
             expect(res.statusCode).toBe(401);
+        });
+
+        test('Debe manejar error al actualizar usuario', async () => {
+            req.headers.authorization = "Bearer t";
+            req.body = { newPassword: "Pass1234" };
+            mockBuilder.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+            mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: { message: "Update Fail" } });
+
+            await AuthController.resetPassword(req, res);
+            expect(res.statusCode).toBe(500);
         });
     });
 
@@ -187,30 +243,44 @@ describe('AuthController Tests (Complete)', () => {
             expect(mockBuilder.eq).toHaveBeenCalledWith('id', 'u1');
             expect(res.json).toHaveBeenCalledWith({ name: 'Pepe' });
         });
+
+        test('Debe manejar error al obtener perfil', async () => {
+            req.user = { userId: 'u1' };
+            mockBuilder.single.mockResolvedValue({ data: null, error: { message: "DB Fail" } });
+            await AuthController.getProfile(req, res);
+            expect(res.statusCode).toBe(500);
+        });
     });
 
     describe('updateProfile', () => {
         test('Debe actualizar perfil', async () => {
             req.user = { userId: 'u1' };
-            req.body = { firstName: 'Juan' }; // Data válida
+            req.body = { firstName: 'Juan' };
 
-            // update() -> eq() se espera que devuelva promesa
-            // El setupMockBuilder hace que eq() devuelva promesa
-            // Luego hace select().eq().single() -> single devuelve promesa
-
+            // Update -> ok (mockBuilder setup returns Promise for update too)
+            mockBuilder.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
+            // Fetch updated -> ok
             mockBuilder.single.mockResolvedValue({ data: { first_name: 'Juan' }, error: null });
 
             await AuthController.updateProfile(req, res);
-
             expect(res.statusCode).toBe(200);
         });
 
         test('Debe fallar si no hay datos', async () => {
             req.user = { userId: 'u1' };
-            req.body = {}; // Vacío
-
+            req.body = {};
             await AuthController.updateProfile(req, res);
             expect(res.statusCode).toBe(400);
+        });
+
+        test('Debe manejar error al actualizar DB', async () => {
+            req.user = { userId: 'u1' };
+            req.body = { firstName: 'Juan' };
+            // Mock update fail
+            mockBuilder.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: { message: "UpdErr" } }) });
+
+            await AuthController.updateProfile(req, res);
+            expect(res.statusCode).toBe(500);
         });
     });
 
@@ -219,22 +289,45 @@ describe('AuthController Tests (Complete)', () => {
             req.user = { userId: 'admin1' };
             req.body = { targetUserId: 'user2', newRole: 'admin' };
 
-            // Admin auth update
             mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: null });
-            // DB update
-            // update().eq() devuelve promesa gracias al mockBuilder
+            // DB update ok
+            mockBuilder.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
 
             await AuthController.changeUserRole(req, res);
-
             expect(res.statusCode).toBe(200);
         });
 
         test('Debe evitar auto-cambio de rol', async () => {
             req.user = { userId: 'admin1' };
             req.body = { targetUserId: 'admin1', newRole: 'user' };
-
             await AuthController.changeUserRole(req, res);
             expect(res.statusCode).toBe(400);
+        });
+
+        test('Debe validar rol inexistente', async () => {
+            req.user = { userId: 'admin1' };
+            req.body = { targetUserId: 'user2', newRole: 'supergod' };
+            await AuthController.changeUserRole(req, res);
+            expect(res.statusCode).toBe(400);
+        });
+
+        test('Debe manejar error de Auth update', async () => {
+            req.user = { userId: 'a' };
+            req.body = { targetUserId: 'u', newRole: 'admin' };
+            mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: { message: "AuthErr" } });
+            await AuthController.changeUserRole(req, res);
+            expect(res.statusCode).toBe(500);
+        });
+
+        test('Debe manejar error de DB update tras Auth update', async () => {
+            req.user = { userId: 'a' };
+            req.body = { targetUserId: 'u', newRole: 'admin' };
+            mockBuilder.auth.admin.updateUserById.mockResolvedValue({ error: null });
+            // DB fail
+            mockBuilder.update.mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: { message: "DBErr" } }) });
+
+            await AuthController.changeUserRole(req, res);
+            expect(res.statusCode).toBe(500);
         });
     });
 });
