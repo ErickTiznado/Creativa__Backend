@@ -66,7 +66,6 @@ app.use("/test", testRoutes);
 // Rutas de campañas
 // Base URL: http://localhost:3000/campaigns
 app.use("/campaigns", CampaignsRoutes);
-app.use("/generator", GeneratorRoutes);
 
 app.use("/profile", ProfileRoutes);
 
