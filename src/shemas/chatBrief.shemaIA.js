@@ -12,12 +12,13 @@
  */
 
 import { VertexAI } from "@google-cloud/vertexai";
+import config from "../config/index.js";
 
 const vertexInstance = new VertexAI({
-  project: process.env.GOOGLE_PROJECT_ID,
-  location: process.env.GOOGLE_LOCATION,
+  project: config.gcp.projectId || "ugb-creativamkt",
+  location: config.gcp.location,
   googleAuthOptions: {
-    keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    keyFilename: config.gcp.keyFilePath,
   },
 });
 
