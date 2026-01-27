@@ -124,9 +124,12 @@ class GeneratorController {
 
             // 1. Validar inputs
             const validatedData = ValidationService.validateImageGenerationRequest(req.body);
-            const { prompt, aspectRatio, sampleCount, campaignId } = validatedData;
+            const { prompt: userPromptSpanish, aspectRatio, sampleCount, campaignId } = validatedData;
 
-            console.log(`[GeneratorController:${requestId}] Params: ${aspectRatio}, Count: ${sampleCount}, CampignID:${campaignId}`);
+            console.log(`[GeneratorController:${requestId}] Optimizando prompt para modelo (ES -> EN)...`);
+
+            // Llamamos al nuevo servicio que creamos
+            const technicalPromptEnglish = await GeminiService.optimizeForImageModel(userPromptSpanish);
 
             // Fallback si no viene campaignId
             const activeCampaignId = campaignId || "unsorted-assets";
@@ -163,7 +166,7 @@ class GeneratorController {
                     const savedAsset = await this._processAndSaveImage({
                         buffer,
                         campaignId: activeCampaignId,
-                        prompt
+                        prompt: userPromptSpanish
                     });
 
                     processedAssets.push(savedAsset);

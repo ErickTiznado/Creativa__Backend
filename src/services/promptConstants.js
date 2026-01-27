@@ -1,7 +1,7 @@
 /**
  * Constantes para el sistema de generación de prompts.
  * Define límites, modelos, configuraciones y definiciones de estilo.
- * Agregadas definiciones detalladas de estilos.
+ * ADAPTADO: Textos en Español para visualización del usuario
  */
 
 export const PROMPT_CONFIG = {
@@ -41,28 +41,28 @@ export const PROMPT_CONFIG = {
 
 // Mapa detallado de modificadores por estilo
 export const STYLE_DEFINITIONS = {
-    'photorealistic': 'Highly detailed, 8k resolution, hyperrealistic photography, sharp focus, professional lighting, shot on 35mm lens.',
-    'cinematic': 'Cinematic lighting, dramatic atmosphere, movie scene aesthetic, wide angle, color graded, volumetric lighting, depth of field.',
-    'digital-art': 'High quality digital illustration, clean lines, vibrant colors, detailed composition, trending on ArtStation.',
-    'oil-painting': 'Textured brushstrokes, canvas texture visible, classical art style, rich colors, expressive technique.',
-    'minimalist': 'Clean composition, negative space, simple shapes, limited color palette, flat design, modern aesthetic.',
-    'neon-punk': 'Cyberpunk aesthetic, neon lights, dark atmosphere, futuristic elements, glowing accents, high contrast.',
-    'corporate': 'Professional business imagery, clean well-lit environment, modern office aesthetic, trustworthy, high-end stock photography style.',
-    'sketch': 'Pencil drawing style, rough lines, artistic shading, monochrome or sepia tones, hand-drawn aesthetic.',
-    'anime': 'Anime art style, cel shading, vibrant colors, expressive characters, detailed backgrounds, Studio Ghibli inspired.',
-    '3d-render': '3D rendered image, Octane render, ray tracing, realistic materials, studio lighting, unreal engine 5 quality.'
+    'photorealistic': 'Altamente detallado, resolución 8k, fotografía hiperrealista, enfoque nítido, iluminación profesional, lente de 35mm.',
+    'cinematic': 'Iluminación cinematográfica, atmósfera dramática, estética de película, plano general, gradación de color, iluminación volumétrica, profundidad de campo.',
+    'digital-art': 'Ilustración digital de alta calidad, líneas limpias, colores vibrantes, composición detallada, tendencia en ArtStation.',
+    'oil-painting': 'Pinceladas texturizadas, textura de lienzo visible, estilo de arte clásico, colores ricos, técnica expresiva.',
+    'minimalist': 'Composición limpia, espacio negativo, formas simples, paleta de colores limitada, diseño plano, estética moderna.',
+    'neon-punk': 'Estética cyberpunk, luces de neón, atmósfera oscura, elementos futuristas, acentos brillantes, alto contraste.',
+    'corporate': 'Imagen de negocios profesional, entorno limpio y bien iluminado, estética de oficina moderna, confiable, estilo de fotografía de stock premium.',
+    'sketch': 'Estilo de dibujo a lápiz, líneas bocetadas, sombreado artístico, tonos monocromáticos o sepia, estética hecha a mano.',
+    'anime': 'Estilo de arte anime, cel shading, colores vibrantes, personajes expresivos, fondos detallados, inspirado en Studio Ghibli.',
+    '3d-render': 'Renderizado 3D, render Octane, trazado de rayos (ray tracing), materiales realistas, iluminación de estudio, calidad Unreal Engine 5.'
 };
 
 export const SYSTEM_INSTRUCTIONS = {
     // Instrucción base optimizada para Gemini 2.5 Pro
-    BASE: `You are an expert Prompt Engineer for Gemini. Your goal is to create detailed, structured image generation prompts based on user briefs and brand guidelines.
-    
-Structure the output to maximize visual fidelity and brand adherence. Maintain a professional tone.`,
+    BASE: `Actúa como un experto en arte digital y diseño visual. 
+    Experto en creación de imágenes para marketing digital y redes sociales.
+    Alta calidad, altamente detallado, obra maestra, composición profesional, resolución 8k, enfoque nítido.`,
 
     NEGATIVE_PROMPT_DEFAULT: [
-        "blurry", "low quality", "distorted", "text watermark",
-        "bad anatomy", "deformed", "pixelated", "out of frame",
-        "disfigured", "ugly", "grainy", "watermark", "signature", "cut off"
+        "borroso", "baja calidad", "distorsionado", "marca de agua de texto",
+        "mala anatomía", "deforme", "pixelado", "fuera de encuadre",
+        "desfigurado", "feo", "granulado", "firma", "cortado"
     ]
 };
 
