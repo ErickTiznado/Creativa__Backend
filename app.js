@@ -22,6 +22,7 @@ import testRoutes from "./src/routes/test.routes.js";
 import CampaignsRoutes from "./src/routes/campaigns.routes.js";
 import ProfileRoutes from "./src/routes/profile.routes.js";
 import AssetsRoutes from "./src/routes/assets.routes.js";
+import GeneratorRoutes from "./src/routes/generator.Routes.js";
 
 // 1. Configuración de Entorno
 // Carga las variables definidas en el archivo .env (ej. NICOLA_SECRET, SUPABASE_URL)
@@ -60,6 +61,7 @@ app.use("/test", testRoutes);
 // Rutas de campañas
 // Base URL: http://localhost:3000/campaigns
 app.use("/campaigns", CampaignsRoutes);
+app.use("/generator", GeneratorRoutes);
 
 app.use("/profile", ProfileRoutes);
 
