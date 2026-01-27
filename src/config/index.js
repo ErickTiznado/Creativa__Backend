@@ -61,7 +61,7 @@ const config = {
       geminiPro: "gemini-2.5-pro",
       geminiFlash: "gemini-2.5-flash",
       geminiVision: "gemini-pro-vision",
-      imagen2: "imagegeneration@006",
+      imagen2: "gemini-2.5-flash-image",
       embedingModel: "text-embedding-004",
     },
     storage: {
