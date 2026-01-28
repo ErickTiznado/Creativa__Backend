@@ -32,7 +32,18 @@ jest.unstable_mockModule('sharp', () => ({
 // Mock Axios
 jest.unstable_mockModule('axios', () => ({
     default: {
-        get: jest.fn().mockResolvedValue({ data: Buffer.from('fake-img') })
+        get: jest.fn((url) => {
+            if (url.includes('rag/getManualVectors')) {
+                return Promise.resolve({
+                    data: [{
+                        embedding: [0.1, 0.2, 0.3],
+                        metadata: JSON.stringify({ brandId: 'u1' }),
+                        content: "Guidelines"
+                    }]
+                });
+            }
+            return Promise.resolve({ data: Buffer.from('fake-img') });
+        })
     }
 }));
 
@@ -263,16 +274,34 @@ describe('GeneratorController (ESM)', () => {
     });
 
     describe('generateImages', () => {
-        test('Genera y guarda imagenes', async () => {
-            req = { body: { prompt: "Una foto" } };
+        test('Genera y guarda imagenes con flujo RAG completo', async () => {
+            req = {
+                body: { prompt: "Una foto", style: "Cinematic" },
+                user: { userId: "u1" } // Auth user mock
+            };
 
             await GeneratorController.generateImages(req, res);
 
             expect(res.statusCode).toBe(200);
+
+            // 1. Verifica mejora de brief
+            // Nota: ValidationService mock devuelve brief default si no se pasa, aqui pasamos prompt -> brief
+            // Pero en validateImageGenerationRequest devolvemos prompt: body.prompt.
+            // En el controller: const { prompt... } = validatedData.
+
+            // 2. Verifica RAG call (Internal Helper -> Axios)
+            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('rag/getManualVectors'));
+
+            // 3. Verifica generación final
             expect(mockGenerateContent).toHaveBeenCalled();
-            // Verify image saving logic implicitly via success response
+
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: true
+                success: true,
+                data: expect.objectContaining({
+                    metadata: expect.objectContaining({
+                        ragRelevance: expect.anything()
+                    })
+                })
             }));
         });
     });

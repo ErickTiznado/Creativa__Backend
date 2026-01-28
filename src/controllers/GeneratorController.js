@@ -10,7 +10,6 @@ import CampaignAsset from "../model/CampaignAsset.model.js";
 import ValidationService, { ValidationError } from '../services/ValidationService.js';
 import PromptBuilder from '../services/PromptBuilder.js';
 import VectorCore from '../services/VectorCore.js';
-import { brand_manual_vectors } from '../services/QuerySearchServise.js';
 import { ERROR_CODES } from '../services/promptConstants.js';
 import GeminiService from '../services/GeminiService.js';
 
@@ -20,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const KEY_PATH = path.join(__dirname, "../../config/key/creativa-key.json");
 
 // --- CONFIGURACIÓN DE CLIENTES (GCP & VERTEX) ---
-const PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.GOOGLE_PROJECT_ID || "ugb-creativamkt";
+const PROJECT_ID = process.env.GCP_PROJECT_ID || process.env.GOOGLE_PROJECT_ID || "ugb-creativamkt-484123";
 const LOCATION = "us-central1";
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "creativa-campaign-assets";
 const MODEL_NAME = 'gemini-2.5-flash-image';
@@ -122,19 +121,40 @@ class GeneratorController {
             console.log(`[GeneratorController:${requestId}] Iniciando generateImages con ${MODEL_NAME}.`);
 
             const validatedData = ValidationService.validateImageGenerationRequest(req.body);
-            const { prompt: userPromptSpanish, aspectRatio, sampleCount, campaignId } = validatedData;
-            const prompt = userPromptSpanish;
+            // Extraer parámetros incluyendo nuevo 'style'
+            const { prompt: userPromptSpanish, aspectRatio, sampleCount, campaignId, style } = validatedData;
 
-            console.log(`[GeneratorController:${requestId}] Optimizando prompt para modelo (ES -> EN)...`);
-            const technicalPromptEnglish = await GeminiService.optimizeForImageModel(userPromptSpanish);
+            // Brand ID del usuario (requiere auth)
+            const brandId = req.user ? req.user.userId : 'anonymous';
+
+            // 1. Mejora de Brief (Gemini)
+            console.log(`[GeneratorController:${requestId}] Mejorando brief...`);
+            const enhancedBrief = await GeminiService.enhanceBrief(userPromptSpanish, style);
+
+            // 2. Contexto RAG (API -> Memoria)
+            console.log(`[GeneratorController:${requestId}] Buscando contexto RAG...`);
+            const context = await this.getContextWithFallback(brandId, enhancedBrief, requestId);
+
+            // 3. Construcción del Prompt Estructurado
+            const structuredPrompt = PromptBuilder.build({
+                brief: enhancedBrief,
+                context,
+                style,
+                dimensions: aspectRatio
+            });
+
+            // 4. Optimización para Modelo de Imagen (ES -> Inglés Técnico)
+            // Se envía el prompt COMPLETAMENTE ESTRUCTURADO para que Gemini lo traduzca/refine a un prompt de imagen final
+            console.log(`[GeneratorController:${requestId}] Optimizando prompt estructurado para modelo (ES -> EN)...`);
+            const technicalPromptEnglish = await GeminiService.optimizeForImageModel(structuredPrompt);
 
             const activeCampaignId = campaignId || "unsorted-assets";
 
             const reqContent = {
-                contents: [{ role: 'user', parts: [{ text: userPromptSpanish }] }] // Usamos el prompt original o el optimizado? HEAD usaba prompt directo.
+                contents: [{ role: 'user', parts: [{ text: technicalPromptEnglish }] }]
             };
 
-            console.log(`[GeneratorController:${requestId}] Enviando prompt a Gemini...`);
+            console.log(`[GeneratorController:${requestId}] Enviando prompt final a Gemini...`);
 
             const result = await generativeModel.generateContent(reqContent);
             const response = await result.response;
@@ -157,7 +177,7 @@ class GeneratorController {
                     const savedAsset = await this._processAndSaveImage({
                         buffer,
                         campaignId: activeCampaignId,
-                        prompt: userPromptSpanish
+                        prompt: technicalPromptEnglish // Guardamos el prompt técnico final
                     });
 
                     processedAssets.push(savedAsset);
@@ -180,7 +200,9 @@ class GeneratorController {
                         requestId,
                         count: processedAssets.length,
                         model: MODEL_NAME,
-                        processingTime: duration
+                        processingTime: duration,
+                        contextSource: context.source,
+                        ragRelevance: context.relevanceScore
                     }
                 }
             });
@@ -399,25 +421,80 @@ class GeneratorController {
 
     async getContextWithFallback(brandId, brief, requestId) {
         try {
-            const embedding = await VectorCore.embed(brief);
-            const results = await brand_manual_vectors.query()
-                .vector(embedding)
-                .limit(3)
-                .where('brandId', brandId)
-                .get();
+            console.log(`[GeneratorController:${requestId}] Obteniendo vectores vía API...`);
 
-            if (results && results.length > 0) {
+            // 1. Obtener todos los manuales de la API
+            const PORT = process.env.PORT || 3000;
+            const apiUrl = `http://localhost:${PORT}/rag/getManualVectors`;
+            const { data: allVectors } = await axios.get(apiUrl);
+
+            if (!allVectors || !Array.isArray(allVectors) || allVectors.length === 0) {
+                console.warn(`[GeneratorController:${requestId}] API retorno lista vacía.`);
+                return this.getGenericBrandContext(brandId);
+            }
+
+            // 2. Vectorizar el brief actual
+            const briefEmbedding = await VectorCore.embed(brief);
+
+            // 3. Filtrar y buscar similitud en memoria
+            // El usuario indicó que los manuales son globales, no filtramos por brandId.
+            const candidates = allVectors;
+
+            if (candidates.length === 0) {
+                console.warn(`[GeneratorController:${requestId}] No se encontraron manuales (Global).`);
+                return this.getGenericBrandContext(brandId); // Fallback aunque sea global si no hay nada
+            }
+
+            // Calcular similitud coseno
+            const scoredCandidates = candidates.map(item => {
+                let itemEmbedding = item.embedding;
+                if (typeof itemEmbedding === 'string') {
+                    try {
+                        itemEmbedding = JSON.parse(itemEmbedding);
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                if (!Array.isArray(itemEmbedding)) return null;
+
+                const score = this._cosineSimilarity(briefEmbedding, itemEmbedding);
+                return { ...item, score };
+            }).filter(item => item !== null);
+
+            // Ordenar por similitud descendente
+            scoredCandidates.sort((a, b) => b.score - a.score);
+
+            // Tomar los top 3
+            const topResults = scoredCandidates.slice(0, 3);
+
+            if (topResults.length > 0) {
                 return {
-                    source: 'rag',
-                    relevanceScore: 0.85,
-                    data: this.formatRagResults(results)
+                    source: 'rag_api',
+                    relevanceScore: topResults[0].score, // Score del mejor match
+                    data: this.formatRagResults(topResults)
                 };
             }
+
             return this.getGenericBrandContext(brandId);
+
         } catch (e) {
-            console.warn(`[GeneratorController:${requestId}] RAG Error: ${e.message}`);
+            console.warn(`[GeneratorController:${requestId}] RAG API Error: ${e.message}`);
             return this.getGenericBrandContext(brandId);
         }
+    }
+
+    _cosineSimilarity(vecA, vecB) {
+        if (vecA.length !== vecB.length) return 0;
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+        for (let i = 0; i < vecA.length; i++) {
+            dotProduct += vecA[i] * vecB[i];
+            normA += vecA[i] * vecA[i];
+            normB += vecB[i] * vecB[i];
+        }
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     formatRagResults(results) {
