@@ -136,4 +136,11 @@ const querySearch = async (req, res) => {
   }
 };
 
-export { ingestManual, querySearch };
+
+const get_manual_vectors = async (req, res) => {
+  const data = await BrandManualVectorsModel.select().get();
+  res.statusCode = 200;
+  res.end(JSON.stringify(data));
+}
+
+export { ingestManual, querySearch, get_manual_vectors };

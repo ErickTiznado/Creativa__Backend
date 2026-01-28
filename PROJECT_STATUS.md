@@ -22,7 +22,7 @@ Sin embargo, el proyecto muestra signos de "deuda técnica" típica de una fase 
 ### 2. Estandarización de Configuración y Secretos
 **Problema:** Hay una mezcla peligrosa de `process.env`, `config/index.js` y rutas absolutas a archivos JSON locales.
 - En `GeneratorController.js` se define `KEY_PATH` apuntando a `../../config/key/creativa-key.json`. Esto fallará en un entorno de producción (ej. Docker, Cloud Run) donde ese archivo podría no existir.
-- Se usan valores "fallback" hardcodeados (ej. `"ugb-creativamkt"`) directamente en el código.
+- Se usan valores "fallback" hardcodeados (ej. `"ugb-creativamkt-484123"`) directamente en el código.
 
 **Solución:** Centralizar TODA la configuración en `src/config/index.js` y hacer que este archivo sea el único que lea `process.env`. El código debe fallar si falta una variable, no usar defaults ocultos.
 

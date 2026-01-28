@@ -15,7 +15,7 @@ import { VertexAI } from "@google-cloud/vertexai";
 import config from "../config/index.js";
 
 const vertexInstance = new VertexAI({
-  project: config.gcp.projectId || "ugb-creativamkt",
+  project: config.gcp.projectId || "ugb-creativamkt-484123",
   location: config.gcp.location,
   googleAuthOptions: {
     keyFilename: config.gcp.keyFilePath,

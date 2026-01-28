@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 const KEY_PATH = path.join(__dirname, "../../config/key/creativa-key.json");
 
 // Variables de entorno o valores por defecto
-const PROJECT_ID = process.env.GCP_PROJECT_ID || "ugb-creativamkt";
+const PROJECT_ID = process.env.GCP_PROJECT_ID || "ugb-creativamkt-484123";
 const LOCATION = "us-central1";
 const EMBEDDING_MODEL = "text-embedding-004";
 
@@ -70,6 +70,93 @@ class VectorCore {
         const embeddings = valuesProto.listValue.values.map(v => v.numberValue);
 
         return embeddings;
+    }
+
+
+    /**
+     * Genera un embedding multimodal para una imagen.
+     * @param {Buffer} imageBuffer - Buffer de la imagen
+     * @returns {Promise<number[]>} Array de 1408 números (embedding)
+     */
+    static async embedImage(imageBuffer) {
+        const client = new PredictionServiceClient(clientOptions);
+
+        const MULTIMODAL_MODEL = "multimodalembedding@001";
+        const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MULTIMODAL_MODEL}`;
+
+        // Convertir imagen a Base64
+        const base64Image = imageBuffer.toString('base64');
+
+        // Construir instancia para el modelo multimodal
+        const instance = helpers.toValue({
+            image: {
+                bytesBase64Encoded: base64Image
+            }
+        });
+
+        const request = {
+            endpoint,
+            instances: [instance]
+        };
+
+        try {
+            const [response] = await client.predict(request);
+            const predictions = response.predictions;
+
+            if (!predictions || predictions.length === 0) {
+                throw new Error('No se obtuvo embedding del modelo multimodal');
+            }
+
+            // Extraer embeddings del formato protobuf
+            const embeddingProto = predictions[0].structValue.fields.imageEmbedding;
+            const valuesProto = embeddingProto.listValue.values;
+            const embeddings = valuesProto.map(v => v.numberValue);
+
+            return embeddings;
+        } catch (error) {
+            console.error('[VectorCore] Error generando embedding de imagen:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Genera un embedding multimodal para texto.
+     * @param {string} text - Texto para vectorizar
+     * @returns {Promise<number[]>} Array de 1408 números (embedding)
+     */
+    static async embedText(text) {
+        const client = new PredictionServiceClient(clientOptions);
+
+        const MULTIMODAL_MODEL = "multimodalembedding@001";
+        const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MULTIMODAL_MODEL}`;
+
+        const instance = helpers.toValue({
+            text: text
+        });
+
+        const request = {
+            endpoint,
+            instances: [instance]
+        };
+
+        try {
+            const [response] = await client.predict(request);
+            const predictions = response.predictions;
+
+            if (!predictions || predictions.length === 0) {
+                throw new Error('No se obtuvo embedding del modelo multimodal');
+            }
+
+            // Extraer embeddings del formato protobuf
+            const embeddingProto = predictions[0].structValue.fields.textEmbedding;
+            const valuesProto = embeddingProto.listValue.values;
+            const embeddings = valuesProto.map(v => v.numberValue);
+
+            return embeddings;
+        } catch (error) {
+            console.error('[VectorCore] Error generando embedding de texto:', error);
+            throw error;
+        }
     }
 }
 

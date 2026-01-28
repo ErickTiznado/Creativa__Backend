@@ -10,7 +10,7 @@
  * ------------------------------------------------------------------
  */
 
-import { ingestManual, querySearch } from "../controllers/rag.controller.js";
+import { ingestManual, querySearch, get_manual_vectors } from "../controllers/rag.controller.js";
 import { Remote } from "nicola-framework";
 
 const RagRoute = new Remote();
@@ -20,5 +20,8 @@ RagRoute.post("/ingestManual", ingestManual);
 
 // Búsqueda semántica (Query)
 RagRoute.post("/query", querySearch);
+
+// Obteniendo vectores de manuales
+RagRoute.get("/getManualVectors", get_manual_vectors);
 
 export default RagRoute;

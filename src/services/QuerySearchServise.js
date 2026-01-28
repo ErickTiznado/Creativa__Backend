@@ -13,4 +13,7 @@ const brand_manual_vectors = async (vector, match_threshold, match_count) => {
   return data;
 };
 
+
+
+
 export { brand_manual_vectors };
