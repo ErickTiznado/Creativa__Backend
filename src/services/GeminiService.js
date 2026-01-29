@@ -8,6 +8,7 @@ import { PROMPT_CONFIG } from "./promptConstants.js";
 
 class GeminiService {
     constructor() {
+        if (process.env.NODE_ENV === 'test') { return; }
         // Inicializar Vertex AI
         // Asumimos que las credenciales (GOOGLE_APPLICATION_CREDENTIALS) y 
         // PROJECT_ID / LOCATION están en variables de entorno o config.
