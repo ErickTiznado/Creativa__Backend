@@ -1,4 +1,5 @@
 import Brief from "../model/Brief.model.js";
+import CampaignAsset from "../model/CampaignAsset.model.js";
 
 /**
  * Obtiene todas las campañas
@@ -100,6 +101,20 @@ export const getCampaingById = async (req, res) => {
   try {
 
     const response = await Brief.select().where("id", campaignId).where("designer_id", designerId).get();
+
+    if (response.length > 0) {
+      const assets = await CampaignAsset.where("campaign_assets", campaignId).get();
+      response[0].assets = assets.map((asset) => ({
+        id: asset.id,
+        img_url: asset.img_url,
+        prompt_used: asset.prompt_used,
+        is_approved: asset.is_approved,
+        status: asset.status,
+        created_at: asset.created_at,
+        parent_asset_id: asset.parent_asset_id,
+        is_refinement: asset.parent_asset_id ? true : false
+      }));
+    }
 
     res.statusCode = 200;
     res.json({
