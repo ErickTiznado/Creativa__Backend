@@ -41,4 +41,7 @@ router.post('/refine-asset', requireAuth, (req, res, next) => {
     GeneratorController.refineAsset(req, res, next);
 });
 
+
+router.post('/approve-asset', requireAuth, (req, res, next) => GeneratorController.approveAsset(req, res, next))
+router.post('/reject-asset', requireAuth, (req, res, next) => GeneratorController.rejectAsset(req, res, next))
 export default router;

@@ -11,6 +11,14 @@ export default class CampaignAsset extends Dynamo.Model {
 
         img_url: { type: "object", required: true },
         prompt_used: { type: "string", required: false },
-        is_approved: { type: "boolean", required: false }
+        is_approved: { type: "boolean", required: false },
+        status: { type: "string", required: false },
+        storage_location: { type: "string", required: false },
+        approved_at: { type: "string", required: false },
+        approved_by: { type: "string", required: false },
+        rejected_at: { type: "string", required: false },
+        rejected_by: { type: "string", required: false },
+        rejected_reason: { type: "string", required: false },
+        parent_asset_id: { type: "string", required: false },
     };
 }
