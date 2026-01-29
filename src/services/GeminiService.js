@@ -8,6 +8,11 @@ import axios from "axios";
 
 class GeminiService {
     constructor() {
+        if (process.env.NODE_ENV === 'test') { return; }
+        // Inicializar Vertex AI
+        // Asumimos que las credenciales (GOOGLE_APPLICATION_CREDENTIALS) y 
+        // PROJECT_ID / LOCATION están en variables de entorno o config.
+        // Ajusta estos valores según tu setup actual de GCP en el proyecto.
         this.project = process.env.GOOGLE_PROJECT_ID;
         this.location = process.env.GOOGLE_LOCATION || "us-central1";
 

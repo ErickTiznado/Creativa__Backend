@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for routes/campaigns.routes.js</title>
+    <title>Code coverage report for model/assets.model.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -19,13 +19,13 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">routes</a> campaigns.routes.js</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">model</a> assets.model.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
@@ -70,36 +70,21 @@
 <a name='L5'></a><a href='#L5'>5</a>
 <a name='L6'></a><a href='#L6'>6</a>
 <a name='L7'></a><a href='#L7'>7</a>
-<a name='L8'></a><a href='#L8'>8</a>
-<a name='L9'></a><a href='#L9'>9</a>
-<a name='L10'></a><a href='#L10'>10</a>
-<a name='L11'></a><a href='#L11'>11</a>
-<a name='L12'></a><a href='#L12'>12</a>
-<a name='L13'></a><a href='#L13'>13</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L8'></a><a href='#L8'>8</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Remote } from "nicola-framework";
-import { getCampaigns } from "../controllers/campaigns.controller.js";
-import { brief_DB } from "../controllers/brief-db.controller.js";
-import { getCampaignsDesigners, updateStateCampaign, getCampaingById } from "../controllers/campaigns.controller.js";
-const CampaignsRoutes = new Remote();
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Dynamo } from "nicola-framework";
 &nbsp;
-CampaignsRoutes.get("/", getCampaigns);
-CampaignsRoutes.post("/registerCampaigns", brief_DB.Registrar_Brief);
-CampaignsRoutes.get("/designers", getCampaignsDesigners);
-CampaignsRoutes.put("/updateStateCampaign", updateStateCampaign);
-CampaignsRoutes.get("/campaignById", getCampaingById);
-export default CampaignsRoutes;
-&nbsp;</pre></td></tr></table></pre>
+&nbsp;
+class Assets extends Dynamo.Model {
+    static tableName = "devschema.campaign_assets";
+}
+&nbsp;
+export default Assets;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
