@@ -88,7 +88,7 @@ class ValidationService {
      * @param {Object} body 
      */
     validateImageGenerationRequest(body) {
-        const { prompt, aspectRatio, sampleCount, campaignId } = body;
+        const { prompt, aspectRatio, sampleCount, campaignId, style } = body;
 
         // 1. Validar Prompt (Obligatorio)
         if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
@@ -116,11 +116,22 @@ class ValidationService {
         // 4. Validad Campaign ID 
         let validCampaignId = campaignId ? this.sanitizeInput(campaignId) : undefined;
 
+        // 5. Validar Estilo (Opcional)
+        let validatedStyle = 'corporate'; // Default
+        if (style) {
+            if (!PROMPT_CONFIG.STYLES.includes(style)) {
+                // Opción: lanzar error o fallback. Lanzamos error para consistencia.
+                throw new ValidationError(`Estilo '${style}' no válido. Permitidos: ${PROMPT_CONFIG.STYLES.join(', ')}`);
+            }
+            validatedStyle = style;
+        }
+
         return {
             prompt: this.sanitizeInput(prompt),
             aspectRatio: validRatio,
             sampleCount: validCount,
-            campaignId: validCampaignId
+            campaignId: validCampaignId,
+            style: validatedStyle
         };
     }
 
