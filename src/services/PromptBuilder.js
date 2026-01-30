@@ -1,121 +1,118 @@
 /**
  * Servicio encargado de ensamblar el prompt final.
  * Fusión de System Instructions + Contexto RAG + Brief Usuario + Modificadores.
- * Implementación completa de la lógica de construcción.
+ * Implementación optimizada con Jerarquía de Atención (Sandwich Structure) y Sanitización Anti-Alucinaciones.
  */
 
-import { SYSTEM_INSTRUCTIONS, STYLE_DEFINITIONS } from './promptConstants.js';
+import { SYSTEM_INSTRUCTIONS, STYLE_DEFINITIONS } from "./promptConstants.js";
+import { BrandSanitizer } from "./BrandSanitizer.js";
 
 class PromptBuilder {
-    constructor() {
-        this.baseSystemInstructions = SYSTEM_INSTRUCTIONS.BASE;
+  constructor() {
+    this.qualityBoilerplate = SYSTEM_INSTRUCTIONS.BASE;
+  }
+
+  /**
+   * Construye el prompt final optimizado.
+   * @param {Object} params
+   * @param {string} params.brief - Brief enriquecido (Ancla)
+   * @param {Object} params.context - Contexto RAG crudo
+   * @param {string} params.style - Estilo visual
+   * @param {string} params.dimensions - Dimensiones
+   */
+  build({ brief, context, style, dimensions }) {
+    // A. SANITIZACIÓN (El Filtro Quirúrgico de RAG)
+    const cleanBrand = BrandSanitizer.clean(context);
+
+    const parts = [];
+
+    // 0. Preparar Estilo
+    const { stylePrefix, styleSuffix } = this.getStyleComponents(style);
+
+    // ---------------------------------------------------------
+    // CAPA 1: SUJETO (El Ancla)
+    // ---------------------------------------------------------
+    if (stylePrefix) parts.push(stylePrefix);
+    parts.push(brief);
+
+    // ---------------------------------------------------------
+    // CAPA 2: CONTEXTO DE MARCA (Sanitizado)
+    // ---------------------------------------------------------
+    if (cleanBrand) {
+      // Inyectamos colores solo si existen
+      if (cleanBrand.colors && cleanBrand.colors.length > 0) {
+        parts.push(`Color Palette: ${cleanBrand.colors.join(", ")}`);
+        // Sugerencia sutil de iluminación con el color primario
+        parts.push(
+          `Lighting: Natural lighting with subtle accents in ${cleanBrand.colors[0]}`,
+        );
+      }
+      // Forzamos entorno si el sanitizer lo dicta (ej: "Modern clean office")
+      if (cleanBrand.environment) {
+        parts.push(`Background/Environment: ${cleanBrand.environment}`);
+      }
     }
 
-    /**
-     * Construye el prompt final optimizado.
-     * @param {Object} params - Parámetros validados
-     * @param {string} params.brief - Brief del usuario (puede venir mejorado)
-     * @param {Object} params.context - Contexto obtenido del RAG o Fallback
-     * @param {string} params.style - Estilo visual seleccionado
-     * @param {string} params.dimensions - Dimensiones técnicas
-     * @returns {string} Prompt final formateado
-     */
-    build({ brief, context, style, dimensions }) {
-        const sections = [];
+    // ---------------------------------------------------------
+    // CAPA 3: CALIDAD Y TÉCNICA (Boilerplate)
+    // ---------------------------------------------------------
+    parts.push(this.qualityBoilerplate);
 
-        // 1. System Instructions (Rol y Objetivo)
-        sections.push(this.baseSystemInstructions);
+    if (styleSuffix) parts.push(styleSuffix);
 
-        // 2. Contexto de Marca (RAG o Fallback)
-        // Usamos la misma lógica para ambos casos ya que la estructura de datos está normalizada
-        if (context && context.data) {
-            sections.push(this.buildBrandContext(context.data));
-        }
-
-        // 3. Brief del Usuario (El núcleo de la solicitud)
-        sections.push(`\nDESCRIPCIÓN DE LA IMAGEN:\n${brief}`);
-
-        // 4. Modificadores de Estilo (Dirección artística)
-        if (style) {
-            sections.push(this.buildStyleModifiers(style));
-        }
-
-        // 5. Especificaciones Técnicas (Dimensiones)
-        if (dimensions) {
-            sections.push(`\nESPECIFICACIONES TÉCNICAS:\nDimensiones: ${dimensions}`);
-        }
-
-        // 6. Negative Prompts (Restricciones)
-        sections.push(this.buildNegativePrompts());
-
-        // Unir todas las secciones con doble salto de línea para claridad
-        return sections.join('\n\n');
+    if (dimensions) {
+      parts.push(`Aspect Ratio: ${dimensions}`);
     }
 
-    /**
-     * Formatea el contexto de marca proveniente del RAG o Fallback.
-     * Convierte el objeto JSON en instrucciones legibles para el LLM.
-     * @param {Object} brandData - Datos de marca normalizados
-     */
-    buildBrandContext(brandData) {
-        const lines = ['\nCONTEXTO DE MARCA Y DIRECTRICES:'];
+    // ---------------------------------------------------------
+    // CAPA 4: NEGATIVOS (Dinámicos - Realism Shield)
+    // ---------------------------------------------------------
+    let negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT;
 
-        // Colores
-        if (brandData.colors) {
-            const { primary, secondary, accent } = brandData.colors;
-            const colorsList = [primary, secondary, accent].filter(Boolean).join(', ');
-            lines.push(`- Color Palette: ${colorsList}`);
-        }
-
-        // Tipografía
-        if (brandData.typography) {
-            const { heading, body } = brandData.typography;
-            if (heading || body) {
-                lines.push(`- Typography: ${heading || ''} (Headings), ${body || ''} (Body)`);
-            }
-        }
-
-        // Estilo Visual y Tono
-        if (brandData.visualStyle) {
-            lines.push(`- Visual Style: ${brandData.visualStyle}`);
-        }
-        if (brandData.tone) {
-            lines.push(`- Tone of Voice/Image: ${brandData.tone}`);
-        }
-
-        // Reglas específicas (Guidelines)
-        if (brandData.guidelines && Array.isArray(brandData.guidelines) && brandData.guidelines.length > 0) {
-            lines.push('- Reglas específicas:');
-            brandData.guidelines.forEach(rule => {
-                lines.push(`  * ${rule}`);
-            });
-        } else if (brandData.relevantRules && Array.isArray(brandData.relevantRules)) {
-            // Soporte para estructura alternativa si viene como relevantRules
-            lines.push('- Reglas específicas:');
-            brandData.relevantRules.forEach(rule => {
-                lines.push(`  * ${rule}`);
-            });
-        }
-
-        return lines.join('\n');
+    // Si el sanitizer detectó "Tech", activamos el escudo Anti-Holograma
+    if (cleanBrand && cleanBrand.requiresRealismShield) {
+      const shieldNegatives = [
+        "holograms",
+        "futuristic ui",
+        "floating data",
+        "blue glow",
+        "cyborgs",
+        "sci-fi elements",
+        "flying numbers",
+        "matrix code",
+        "virtual reality goggles",
+        "circuits on face",
+      ];
+      negatives = [...negatives, ...shieldNegatives];
     }
 
-    /**
-     * Genera la sección de modificadores de estilo basada en el mapa de definiciones.
-     * @param {string} style - Key del estilo (ej: 'cinematic')
-     */
-    buildStyleModifiers(style) {
-        const description = STYLE_DEFINITIONS[style] || style;
-        return `\nDIRECCIÓN DE ESTILO:\n${description}`;
-    }
+    // ---------------------------------------------------------
+    // CAPA 5: ESCUDO ANTI-TEXTO (Política de Pureza Visual)
+    // ---------------------------------------------------------
+    // Refuerzo explícito para garantizar que no haya texto, según solicitud del usuario.
+    const textShield = ["text", "typography", "letters", "words", "watermark"];
+    negatives = [...negatives, ...textShield];
 
-    /**
-     * Agrega los negative prompts globales.
-     */
-    buildNegativePrompts() {
-        const negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT.join(", ");
-        return `\nPROHIBIDO:\n${negatives}`;
+    // Unir negativos únicos
+    const uniqueNegatives = [...new Set(negatives)].join(", ");
+
+    // Retorno: Prompt Positivo separada por comas + Negativos
+    return `${parts.join(", ")}\n\n--no ${uniqueNegatives}`;
+  }
+
+  /**
+   * Extrae componentes de estilo (Prefix/Suffix)
+   */
+  getStyleComponents(style) {
+    const def = STYLE_DEFINITIONS[style];
+    if (def) {
+      return {
+        stylePrefix: def.prefix || "",
+        styleSuffix: def.suffix || "",
+      };
     }
+    return { stylePrefix: "", styleSuffix: style || "" };
+  }
 }
 
 export default new PromptBuilder();

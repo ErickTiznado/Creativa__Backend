@@ -123,7 +123,7 @@ const querySearch = async (req, res) => {
       });
 
       res.statusCode = 200;
-      res.end(JSON.stringify(formatedData));
+      res.json(formatedData);
       return;
     } catch (error) {
       res.statusCode = 500;
@@ -136,11 +136,10 @@ const querySearch = async (req, res) => {
   }
 };
 
-
 const get_manual_vectors = async (req, res) => {
   const data = await BrandManualVectorsModel.select().get();
   res.statusCode = 200;
-  res.end(JSON.stringify(data));
-}
+  res.json(data);
+};
 
 export { ingestManual, querySearch, get_manual_vectors };
