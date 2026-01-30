@@ -5,70 +5,140 @@
  */
 
 export const PROMPT_CONFIG = {
-    // Límites de validación
-    VALIDATION: {
-        MIN_BRIEF_LENGTH: 50,
-        MAX_BRIEF_LENGTH: 2000,
-        ALLOWED_FORMATS: ['png', 'jpeg', 'webp'],
-        VARIATIONS: {
-            MIN: 1,
-            MAX: 4,
-            DEFAULT: 1
-        }
+  // Límites de validación
+  VALIDATION: {
+    MIN_BRIEF_LENGTH: 50,
+    MAX_BRIEF_LENGTH: 2000,
+    ALLOWED_FORMATS: ["png", "jpeg", "webp"],
+    VARIATIONS: {
+      MIN: 1,
+      MAX: 4,
+      DEFAULT: 1,
     },
+  },
 
-    // Configuración del Modelo (Gemini 2.5 Pro)
-    MODEL: {
-        NAME: 'gemini-2.5-pro',
-        DEFAULT_ASPECT_RATIO: '16:9',
-        MAX_OUTPUT_TOKENS: 8192
-    },
+  // Configuración del Modelo (Gemini 2.5 Pro)
+  MODEL: {
+    NAME: "gemini-2.5-pro",
+    DEFAULT_ASPECT_RATIO: "16:9",
+    MAX_OUTPUT_TOKENS: 8192,
+  },
 
-    // Lista simple de IDs de estilos permitidos
-    STYLES: [
-        'photorealistic',
-        'cinematic',
-        'digital-art',
-        'oil-painting',
-        'minimalist',
-        'neon-punk',
-        'corporate',
-        'sketch',
-        'anime',
-        '3d-render'
-    ]
+  // Lista simple de IDs de estilos permitidos
+  STYLES: [
+    "photorealistic",
+    "cinematic",
+    "digital-art",
+    "oil-painting",
+    "minimalist",
+    "neon-punk",
+    "corporate",
+    "sketch",
+    "anime",
+    "3d-render",
+  ],
 };
 
 // Mapa detallado de modificadores por estilo
 export const STYLE_DEFINITIONS = {
-    'photorealistic': 'Altamente detallado, resolución 8k, fotografía hiperrealista, enfoque nítido, iluminación profesional, lente de 35mm.',
-    'cinematic': 'Iluminación cinematográfica, atmósfera dramática, estética de película, plano general, gradación de color, iluminación volumétrica, profundidad de campo.',
-    'digital-art': 'Ilustración digital de alta calidad, líneas limpias, colores vibrantes, composición detallada, tendencia en ArtStation.',
-    'oil-painting': 'Pinceladas texturizadas, textura de lienzo visible, estilo de arte clásico, colores ricos, técnica expresiva.',
-    'minimalist': 'Composición limpia, espacio negativo, formas simples, paleta de colores limitada, diseño plano, estética moderna.',
-    'neon-punk': 'Estética cyberpunk, luces de neón, atmósfera oscura, elementos futuristas, acentos brillantes, alto contraste.',
-    'corporate': 'Imagen de negocios profesional, entorno limpio y bien iluminado, estética de oficina moderna, confiable, estilo de fotografía de stock premium.',
-    'sketch': 'Estilo de dibujo a lápiz, líneas bocetadas, sombreado artístico, tonos monocromáticos o sepia, estética hecha a mano.',
-    'anime': 'Estilo de arte anime, cel shading, colores vibrantes, personajes expresivos, fondos detallados, inspirado en Studio Ghibli.',
-    '3d-render': 'Renderizado 3D, render Octane, trazado de rayos (ray tracing), materiales realistas, iluminación de estudio, calidad Unreal Engine 5.'
+  photorealistic: {
+    prefix: "Professional commercial photography of",
+    suffix:
+      "8k resolution, highly detailed, sharp focus, 35mm lens, raw photo, f/8, natural lighting",
+  },
+  cinematic: {
+    prefix: "Cinematic shot of",
+    suffix:
+      "dramatic lighting, movie aesthetic, wide angle, color grading, volumetric lighting, depth of field, anamorphic lens",
+  },
+  "digital-art": {
+    prefix: "High quality digital art of",
+    suffix:
+      "clean lines, vibrant colors, detailed composition, trending on ArtStation, sharp details",
+  },
+  "oil-painting": {
+    prefix: "Oil painting of",
+    suffix:
+      "textured brushstrokes, visible canvas texture, classic art style, rich colors, expressive technique",
+  },
+  minimalist: {
+    prefix: "Minimalist composition of",
+    suffix:
+      "clean background, negative space, simple shapes, limited color palette, flat design, modern aesthetic",
+  },
+  "neon-punk": {
+    prefix: "Cyberpunk aesthetic shot of",
+    suffix:
+      "neon lights, dark atmosphere, futuristic elements, glowing accents, high contrast, ray tracing",
+  },
+  corporate: {
+    prefix: "Professional corporate imagery of",
+    suffix:
+      "clean environment, bright lighting, modern office aesthetic, trustworthy, premium stock photography style",
+  },
+  sketch: {
+    prefix: "Pencil sketch of",
+    suffix:
+      "rough lines, artistic shading, monochromatic or sepia tones, hand-drawn aesthetic, graphite texture",
+  },
+  anime: {
+    prefix: "Anime style illustration of",
+    suffix:
+      "cel shading, vibrant colors, expressive characters, detailed backgrounds, Studio Ghibli inspired, 4k",
+  },
+  "3d-render": {
+    prefix: "3D render of",
+    suffix:
+      "Octane render, ray tracing, realistic materials, studio lighting, Unreal Engine 5 quality, C4D",
+  },
 };
 
 export const SYSTEM_INSTRUCTIONS = {
-    // Instrucción base optimizada para Gemini 2.5 Pro
-    BASE: `Actúa como un experto en arte digital y diseño visual. 
-    Experto en creación de imágenes para marketing digital y redes sociales.
-    Alta calidad, altamente detallado, obra maestra, composición profesional, resolución 8k, enfoque nítido.`,
+  // Instrucción base: Quality Boilerplate (Adiós a la personalidad)
+  BASE: `Award-winning composition, commercial photography, extremely detailed, 8k, raw photo, hyperrealistic, professional visuals.`,
 
-    NEGATIVE_PROMPT_DEFAULT: [
-        "borroso", "baja calidad", "distorsionado", "marca de agua de texto",
-        "mala anatomía", "deforme", "pixelado", "fuera de encuadre",
-        "desfigurado", "feo", "granulado", "firma", "cortado"
-    ]
+  NEGATIVE_PROMPT_DEFAULT: [
+    "blurry",
+    "low quality",
+    "distorted",
+    "bad anatomy",
+    "deformed",
+    "pixelated",
+    "out of frame",
+    "disfigured",
+    "ugly",
+    "grainy",
+    "cut off",
+    // STRICT NO TEXT POLICY
+    "text",
+    "watermark",
+    "typography",
+    "letters",
+    "words",
+    "signature",
+    "logo text",
+    "brand name",
+    "writing",
+    "alphabet",
+    "numbers",
+    "label",
+    "signage",
+    // Domain Specific Negatives (Anti-Hologram/Sci-Fi Clichés for realistic ask)
+    "hologram",
+    "futuristic interface",
+    "floating elements",
+    "blue glow",
+    "cgi",
+    "fantasy",
+    "flying objects",
+    "neon circles",
+    "complex hud",
+  ],
 };
 
 export const ERROR_CODES = {
-    VALIDATION_ERROR: 'VALIDATION_ERROR',
-    AUTH_ERROR: 'AUTH_ERROR',
-    RAG_ERROR: 'RAG_ERROR',
-    INTERNAL_ERROR: 'INTERNAL_ERROR'
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  AUTH_ERROR: "AUTH_ERROR",
+  RAG_ERROR: "RAG_ERROR",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
 };
