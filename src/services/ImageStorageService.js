@@ -5,6 +5,8 @@ import path from "path";
 import axios from "axios";
 import { fileURLToPath } from "url";
 import CampaignAsset from "../model/CampaignAsset.model.js";
+import CampaignAssetVector from "../model/CampaignAssetVector.model.js";
+import VectorCore from "./VectorCore.js";
 import { PatternBuilder } from "nicola-framework";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,6 +108,36 @@ class ImageStorageService {
 
     // Guardar en base de datos
     const newAsset = await CampaignAsset.create(assetData);
+
+    // [NUEVO] Generar y guardar embedding vectorial (Multimodal)
+    // Se hace de forma asíncrona pero sin bloquear el retorno inmediato si es aceptable,
+    // o esperamos para asegurar que se guarde. Mejor esperamos para consistencia.
+    if (newAsset && newAsset.id) {
+      try {
+        console.log(
+          `[ImageStorage] Generando embedding para asset ${newAsset.id}...`,
+        );
+        const embedding = await VectorCore.embedImage(buffer);
+
+        if (embedding) {
+          await CampaignAssetVector.create({
+            asset_id: newAsset.id,
+            embedding: embedding,
+            prompt_used: prompt || "",
+            created_at: new Date().toISOString(),
+          });
+          console.log(
+            `[ImageStorage] Embedding guardado para asset ${newAsset.id}`,
+          );
+        }
+      } catch (vecErr) {
+        console.error(
+          `[ImageStorage] Error generando/guardando embedding: ${vecErr.message}`,
+        );
+        // No lanzamos error para no afectar el flujo principal de guardado de imagen
+      }
+    }
+
     return {
       ...assetData,
       id: newAsset?.id,

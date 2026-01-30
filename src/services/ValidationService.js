@@ -42,7 +42,7 @@ class ValidationService {
    * @returns {Object} Datos validados y limpios
    */
   validateRequest(body, user) {
-    const { brief, style, dimensions, variations } = body;
+    const { brief, style, dimensions, variations, campaignId } = body;
 
     // 1. Validar Autenticación y BrandId
     if (!user || !user.userId) {
@@ -87,6 +87,7 @@ class ValidationService {
       dimensions: validatedDimensions,
       variations: validatedVariations,
       brandId: user.userId, // Usar userId del JWT payload
+      campaignId: this.sanitizeInput(campaignId),
     };
   }
 

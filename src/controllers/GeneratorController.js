@@ -9,6 +9,7 @@ import ImageStorageService from "../services/ImageStorageService.js";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import Brief from "../model/Brief.model.js";
 
 // Fix para __dirname en ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -32,9 +33,16 @@ class GeneratorController {
         req.body,
         req.user,
       );
-      const { brief, style, dimensions, variations, brandId } = validatedData;
+      const { brief, style, dimensions, variations, brandId, campaignId } =
+        validatedData;
 
-      const enhancedBrief = await GeminiService.enhanceBrief(brief, style);
+      let finalBrief = brief;
+      const campaignContext = await this._getCampaignContext(campaignId);
+      if (campaignContext) {
+        finalBrief = `${brief}. \n\n[CAMPAIGN CONTEXT]: ${campaignContext}`;
+      }
+
+      const enhancedBrief = await GeminiService.enhanceBrief(finalBrief, style);
 
       // Usando RagService
       const context = await RagService.getContext(
@@ -87,8 +95,14 @@ class GeneratorController {
       const brandId = req.user ? req.user.userId : "anonymous";
 
       // 1. Mejora y Contexto
+      let finalPromptInput = userPromptSpanish;
+      const campaignContext = await this._getCampaignContext(campaignId);
+      if (campaignContext) {
+        finalPromptInput = `${userPromptSpanish}. \n\n[CAMPAIGN CONTEXT]: ${campaignContext}`;
+      }
+
       const enhancedBrief = await GeminiService.enhanceBrief(
-        userPromptSpanish,
+        finalPromptInput,
         style,
       );
       const context = await RagService.getContext(
@@ -133,6 +147,7 @@ class GeneratorController {
       const imageBuffers = await GeminiService.generateImages({
         prompt: finalPrompt,
         referenceImages: combinedReferences,
+        aspectRatio: aspectRatio,
       });
 
       console.log(
@@ -424,6 +439,22 @@ class GeneratorController {
       success: false,
       error: { code: ERROR_CODES.INTERNAL_ERROR, message: error.message },
     });
+  }
+  async _getCampaignContext(campaignId) {
+    if (!campaignId || campaignId === "unsorted-assets") return null;
+    try {
+      const campaigns = await Brief.where("id", campaignId).get();
+      if (campaigns && campaigns.length > 0) {
+        return campaigns[0].brief_data
+          ? JSON.stringify(campaigns[0].brief_data)
+          : null;
+      }
+    } catch (error) {
+      console.warn(
+        `[GeneratorController] Error fetching campaign context: ${error.message}`,
+      );
+    }
+    return null;
   }
 }
 

@@ -69,6 +69,11 @@ class GeminiService {
             3. Use descriptive adjectives appropriate for the target style.
             4. Output ONLY the enhanced description. No introductions like "Here is the enhanced brief".
             5. IMPORTANT: Write the output in ENGLISH. This will be used directly for image generation.
+            6. NEGATIVE CONSTRAINTS (STRICT):
+               - Do NOT include holograms, futuristic interfaces, glowing blue data, floating charts, or iron-man style HUDs.
+               - Do NOT make it look like a sci-fi movie. Keep it grounded in a contemporary, realistic setting.
+               - Even if the brief mentions "tech" or "data", visualize it as PHYSICAL screens (monitors, tablets, projectors), NOT holograms.
+               - Avoid "cyberpunk" or "neon" aesthetics unless the style explicitly requests 'neon-punk'.
             `;
 
       const request = {
@@ -143,7 +148,7 @@ class GeminiService {
    * @param {string[]} params.referenceImages - URLs o Rutas Locales de imagenes de referencia
    * @returns {Promise<Object[]>} Array de buffers de imagen generados
    */
-  async generateImages({ prompt, referenceImages = [] }) {
+  async generateImages({ prompt, referenceImages = [], aspectRatio = "1:1" }) {
     // 1. Preparar Parts (Prompt + Imagenes)
     const parts = [{ text: prompt }];
 
@@ -156,15 +161,13 @@ class GeminiService {
       parts.push(...imageParts);
     }
 
-    const reqContent = {
+    const result = await this.imageModel.generateContent({
       contents: [{ role: "user", parts: parts }],
-    };
-
-    console.log(
-      `[GeminiService] Enviando prompt a ${this.imageModelName} (${parts.length} parts)...`,
-    );
-
-    const result = await this.imageModel.generateContent(reqContent);
+      generationConfig: {
+        numberOfImages: 1,
+        aspectRatio: aspectRatio,
+      },
+    });
     const response = await result.response;
     const candidates = response.candidates || [];
 
