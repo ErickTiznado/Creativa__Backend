@@ -148,7 +148,12 @@ class GeminiService {
    * @param {string[]} params.referenceImages - URLs o Rutas Locales de imagenes de referencia
    * @returns {Promise<Object[]>} Array de buffers de imagen generados
    */
-  async generateImages({ prompt, referenceImages = [], aspectRatio = "1:1" }) {
+  async generateImages({
+    prompt,
+    referenceImages = [],
+    aspectRatio = "1:1",
+    numberOfImages = 1,
+  }) {
     // 1. Preparar Parts (Prompt + Imagenes)
     const parts = [{ text: prompt }];
 
@@ -161,22 +166,34 @@ class GeminiService {
       parts.push(...imageParts);
     }
 
+    // 3. Configurar parámetros BASE para Gemini
+    // Ajustar candidateCount a 1 por request para máxima compatibilidad
+    // Muchos modelos de imagen via API Gemini solo soportan 1 candidato por llamada.
+    const genConfig = {
+      candidateCount: 1,
+      maxOutputTokens: 2048,
+      temperature: 0.5,
+    };
+
+    // Agregar instrucción de Aspect Ratio al prompt si no es 1:1
+    if (aspectRatio && aspectRatio !== "1:1") {
+      parts[0].text += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
+    }
+
+    // 4. Ejecutar Generación (Single Request)
+    // Se fuerza a 1 imagen por petición por estabilidad/costo, según solicitud del usuario.
     const result = await this.imageModel.generateContent({
       contents: [{ role: "user", parts: parts }],
-      generationConfig: {
-        numberOfImages: 1,
-        aspectRatio: aspectRatio,
-      },
+      generationConfig: genConfig,
     });
+
     const response = await result.response;
     const candidates = response.candidates || [];
 
-    if (candidates.length === 0) {
-      throw new Error("Gemini no devolvió candidatos.");
-    }
-
-    // Extraer imágenes de la respuesta
+    // 5. Procesar Resultado
     const generatedImages = [];
+
+    // Solo procesamos el primer candidato o los que lleguen (probablemente 1)
     for (const candidate of candidates) {
       const cParts = candidate.content.parts || [];
       const imagePart = cParts.find((p) => p.inlineData);
@@ -188,12 +205,11 @@ class GeminiService {
     if (generatedImages.length === 0) {
       // Intentar leer texto de error si no hay imagen
       let textResponse = "";
-      candidates[0].content?.parts?.forEach((p) => {
+      candidates[0]?.content?.parts?.forEach((p) => {
         if (p.text) textResponse += p.text;
       });
-      // A veces Gemini se niega y explica por qué en texto
       throw new Error(
-        `Gemini respondió solo texto (posible bloqueo): ${textResponse.substring(0, 100)}...`,
+        `Gemini respondió solo texto: ${textResponse.substring(0, 100)}...`,
       );
     }
 
@@ -291,6 +307,101 @@ class GeminiService {
       }
     }
     return parts;
+  }
+  /**
+   * Realiza Inpainting/Edición con MÁSCARA usando Gemini 2.5 Flash Image.
+   * Nota: Este modelo usa Prompt-based editing con máscara como input multimodal.
+   * @param {string} prompt - Instrucción de edición.
+   * @param {string} imageBase64 - Imagen original.
+   * @param {string} maskBase64 - Máscara (Blanco/Negro).
+   * @param {string[]} [referenceImages=[]] - Array of base64 images as references.
+   */
+  async editImageWithMask(
+    prompt,
+    imageBase64,
+    maskBase64,
+    referenceImages = [],
+  ) {
+    try {
+      console.log(
+        `[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`,
+      );
+
+      // Prompt específico para instruir al modelo sobre el uso de la máscara y referencias
+      const manualPrompt = `
+      [Instruction]: Edit the first attached image using the provided mask (second image).
+      [Goal]: ${prompt}
+      [Mask Info]: The second image attached is a mask. White areas represent the region to edit. Black areas must be preserved exactly.
+      ${referenceImages.length > 0 ? "[References]: The subsequent images are visual references to guide the style or content of the generated area." : ""}
+      `;
+
+      const parts = [
+        { text: manualPrompt },
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: imageBase64,
+          },
+        },
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: maskBase64,
+          },
+        },
+      ];
+
+      // Add reference images to parts
+      if (referenceImages && referenceImages.length > 0) {
+        referenceImages.forEach((refBase64) => {
+          // Ensure pure base64
+          const cleanRef = refBase64.replace(/^data:image\/\w+;base64,/, "");
+          parts.push({
+            inlineData: {
+              mimeType: "image/png",
+              data: cleanRef,
+            },
+          });
+        });
+      }
+
+      const genConfig = {
+        candidateCount: 1,
+        maxOutputTokens: 2048,
+        temperature: 0.4, // Un poco más bajo para fidelidad
+      };
+
+      const result = await this.imageModel.generateContent({
+        contents: [{ role: "user", parts: parts }],
+        generationConfig: genConfig,
+      });
+
+      const response = await result.response;
+      const candidate = response.candidates[0];
+
+      // Buscar imagen en respuesta
+      const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
+
+      // Buscar texto (posible error o comentario)
+      let textResponse = "";
+      candidate?.content?.parts?.forEach((p) => {
+        if (p.text) textResponse += p.text;
+      });
+
+      if (imagePart) {
+        return {
+          buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+          text: textResponse,
+        };
+      } else {
+        throw new Error(
+          `Gemini no generó imagen. Respuesta texto: ${textResponse}`,
+        );
+      }
+    } catch (error) {
+      console.error("[GeminiService] Error en editImageWithMask:", error);
+      throw error;
+    }
   }
 }
 

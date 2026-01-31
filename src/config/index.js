@@ -24,12 +24,15 @@ const config = {
   gcp: {
     projectId: process.env.GOOGLE_PROJECT_ID,
     location: process.env.GOOGLE_LOCATION || "us-central1",
-    keyFilePath: process.env.GOOGLE_APPLICATION_CREDENTIALS ? path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS) : undefined,
+    keyFilePath: process.env.GOOGLE_APPLICATION_CREDENTIALS
+      ? path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      : undefined,
     models: {
       geminiPro: "gemini-2.5-pro",
       geminiFlash: "gemini-2.5-flash",
       geminiVision: "gemini-pro-vision",
       imagen2: "gemini-2.5-flash-image",
+      imagenModel: "gemini-2.5-flash-image",
       embedingModel: "text-embedding-004",
     },
     storage: {

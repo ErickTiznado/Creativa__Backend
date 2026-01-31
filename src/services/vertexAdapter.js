@@ -191,24 +191,34 @@ class vertexAdapter {
       // TODO: Validar si maskImageBase64 es necesario o si viene en options
       // const maskImageBase64 = await this.downloadImageAsBase64(maskImageUrl);
 
-      const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.imagen2}:editImage`;
+      const endpoint = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${config.gcp.models.imagenModel}:editImage`;
 
-      // Nota: La estructura instanceValue depende de si hay máscara o no.
-      // Se asume implementación pendiente o incompleta en el código original.
-      const instanceValue = helpers.toValue({
+      // Preparar payload
+      // Para editImage con Imagen 2/Gemini Flash Image:
+      // Se requiere 'image' (original) y 'mask' (área a editar)
+      // Prompt es la instrucción de cambio.
+
+      const instanceData = {
         prompt: prompt,
         image: {
           bytesBase64Encoded: baseImageBase64,
         },
-        // mask: { bytesBase64Encoded: maskImageBase64 }, // Descomentar si se usa
-      });
+      };
+
+      if (options.maskImageBase64) {
+        instanceData.mask = {
+          bytesBase64Encoded: options.maskImageBase64,
+        };
+      }
+
+      const instanceValue = helpers.toValue(instanceData);
 
       const request = {
         endpoint,
         instances: [instanceValue],
         parameters: helpers.toValue({
           sampleCount: 1,
-          ...options,
+          ...options.parameters, // Pass defined parameters like seed if any
         }),
       };
 
