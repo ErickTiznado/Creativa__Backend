@@ -10,6 +10,7 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import Brief from "../model/Brief.model.js";
+import InpaintingService from "../services/InpaintingService.js";
 
 // Fix para __dirname en ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -90,6 +91,7 @@ class GeneratorController {
         aspectRatio,
         campaignId,
         style,
+        sampleCount,
       } = ValidationService.validateImageGenerationRequest(req.body);
 
       const brandId = req.user ? req.user.userId : "anonymous";
@@ -148,6 +150,7 @@ class GeneratorController {
         prompt: finalPrompt,
         referenceImages: combinedReferences,
         aspectRatio: aspectRatio,
+        numberOfImages: sampleCount,
       });
 
       console.log(
@@ -440,6 +443,53 @@ class GeneratorController {
       error: { code: ERROR_CODES.INTERNAL_ERROR, message: error.message },
     });
   }
+  /**
+   * EDICIÓN DE IMAGENES (Inpainting)
+   * POST /generator/edit-image
+   */
+  async editImage(req, res) {
+    const startTime = Date.now();
+    const requestId = `edit_${startTime}_${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      console.log(
+        `[GeneratorController:${requestId}] Iniciando Edición/Inpainting.`,
+      );
+
+      // 1. Validar
+      const validatedData = ValidationService.validateInpaintingRequest(
+        req.body,
+      );
+      const { assetId, prompt, maskImage, referenceImages } = validatedData;
+
+      // Si hay usuario autenticado, usamos su ID, sino 'anonymous'
+      const brandId = req.user ? req.user.userId : "anonymous";
+
+      console.log(
+        `[GeneratorController] Recibido editImage. AssetId: ${assetId}, ReferenceImages: ${referenceImages?.length || 0}`,
+      );
+
+      const result = await InpaintingService.processInpainting({
+        assetId,
+        prompt,
+        maskImage,
+        brandId,
+        referenceImages,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        metadata: {
+          requestId,
+          processingTime: Date.now() - startTime,
+        },
+      });
+    } catch (error) {
+      this._handleError(res, error, requestId);
+    }
+  }
+
   async _getCampaignContext(campaignId) {
     if (!campaignId || campaignId === "unsorted-assets") return null;
     try {

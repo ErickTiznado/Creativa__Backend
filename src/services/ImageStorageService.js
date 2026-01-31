@@ -109,35 +109,6 @@ class ImageStorageService {
     // Guardar en base de datos
     const newAsset = await CampaignAsset.create(assetData);
 
-    // [NUEVO] Generar y guardar embedding vectorial (Multimodal)
-    // Se hace de forma asíncrona pero sin bloquear el retorno inmediato si es aceptable,
-    // o esperamos para asegurar que se guarde. Mejor esperamos para consistencia.
-    if (newAsset && newAsset.id) {
-      try {
-        console.log(
-          `[ImageStorage] Generando embedding para asset ${newAsset.id}...`,
-        );
-        const embedding = await VectorCore.embedImage(buffer);
-
-        if (embedding) {
-          await CampaignAssetVector.create({
-            asset_id: newAsset.id,
-            embedding: embedding,
-            prompt_used: prompt || "",
-            created_at: new Date().toISOString(),
-          });
-          console.log(
-            `[ImageStorage] Embedding guardado para asset ${newAsset.id}`,
-          );
-        }
-      } catch (vecErr) {
-        console.error(
-          `[ImageStorage] Error generando/guardando embedding: ${vecErr.message}`,
-        );
-        // No lanzamos error para no afectar el flujo principal de guardado de imagen
-      }
-    }
-
     return {
       ...assetData,
       id: newAsset?.id,
@@ -187,6 +158,35 @@ class ImageStorageService {
 
       const clearTemp = await bucket.file(assetUrl).delete();
       const clearTempThumbnail = await bucket.file(assetThumbnail).delete();
+
+      // [NUEVO] Generar vector solo al aprobar
+      // Necesitamos leer el archivo de la nueva ubicacion (approved) para generar el vector
+      // O podemos descargarlo antes de borrar la temp, pero aqui ya esta en approved.
+      try {
+        const fileBuffer = await bucket.file(newUrl).download();
+        const buffer = fileBuffer[0];
+
+        console.log(
+          `[ImageStorage] Generando embedding para asset aprobado ${assetId}...`,
+        );
+        const embedding = await VectorCore.embedImage(buffer);
+
+        if (embedding) {
+          await CampaignAssetVector.create({
+            asset_id: assetId,
+            embedding: embedding,
+            prompt_used: asset.prompt_used || "",
+            created_at: new Date().toISOString(),
+          });
+          console.log(
+            `[ImageStorage] Embedding guardado para asset ${assetId}`,
+          );
+        }
+      } catch (vecErr) {
+        console.error(
+          `[ImageStorage] Error generando embedding en aprobacion: ${vecErr.message}`,
+        );
+      }
     } catch (err) {
       throw new Error(err);
     }
@@ -250,6 +250,31 @@ class ImageStorageService {
 
     return { parts, campaignId };
   }
+  /**
+   * Retrieves a single asset by ID.
+   * @param {string} assetId
+   * @returns {Promise<Object|null>}
+   */
+  async getAssetById(assetId) {
+    try {
+      const assets = await CampaignAsset.where("id", assetId).get();
+      if (assets && assets.length > 0) {
+        // Normalizar URL si es objeto
+        const asset = assets[0];
+        if (typeof asset.img_url === "object" && asset.img_url.url) {
+          asset.url = asset.img_url.url; // Alias para facilidad
+        } else {
+          asset.url = asset.img_url;
+        }
+        return asset;
+      }
+      return null;
+    } catch (error) {
+      console.error(`[ImageStorage] Error getAssetById: ${error.message}`);
+      throw error;
+    }
+  }
+
   /**
    * Deletes an asset and its children recursively from DB and Storage.
    * @param {string} assetId

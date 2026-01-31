@@ -226,6 +226,34 @@ class ValidationService {
    * @param {string} input
    * @returns {string}
    */
+  /**
+   * Valida request para EDICION DE IMÁGENES (Inpainting)
+   * @param {Object} body
+   */
+  validateInpaintingRequest(body) {
+    const { assetId, prompt, maskImage, referenceImages } = body;
+
+    if (!assetId) throw new ValidationError("assetId es requerido");
+    if (!prompt || typeof prompt !== "string")
+      throw new ValidationError("prompt es requerido");
+    if (!maskImage || typeof maskImage !== "string")
+      throw new ValidationError("maskImage (Base64) es requerido");
+
+    // Optional: Validate referenceImages if present
+    if (referenceImages && !Array.isArray(referenceImages)) {
+      throw new ValidationError(
+        "referenceImages debe ser un array de strings (Base64)",
+      );
+    }
+
+    return {
+      assetId: this.sanitizeInput(assetId),
+      prompt: this.sanitizeInput(prompt),
+      maskImage,
+      referenceImages: referenceImages || [],
+    };
+  }
+
   sanitizeInput(input) {
     if (!input) return "";
     if (typeof input !== "string") return String(input);
