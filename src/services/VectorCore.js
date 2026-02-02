@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Ruta a la llave JSON
-const KEY_PATH = path.join(__dirname, "../../config/key/creativa-key.json");
+const KEY_PATH = path.join(__dirname, "../config/key/creativa-key.json");
 
 // Variables de entorno o valores por defecto
 const PROJECT_ID = process.env.GCP_PROJECT_ID || "ugb-creativamkt-484123";

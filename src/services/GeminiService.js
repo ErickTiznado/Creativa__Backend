@@ -1,7 +1,7 @@
 /**
  * Servicio para interactuar con Gemini (Vertex AI).
  * Se encarga de tareas de enriquecimiento de texto y generación creativa (Texto e Imagen).
- * EDITED: Incluye lógica de separación de Estilo vs Contenido.
+ * EDITED: Soporta referencias DUALES (Estilo del Manual + Estructura del Usuario).
  */
 
 import { VertexAI } from "@google-cloud/vertexai";
@@ -16,9 +16,6 @@ class GeminiService {
             return;
         }
         // Inicializar Vertex AI
-        // Asumimos que las credenciales (GOOGLE_APPLICATION_CREDENTIALS) y
-        // PROJECT_ID / LOCATION están en variables de entorno o config.
-        // Ajusta estos valores según tu setup actual de GCP en el proyecto.
         this.project = process.env.GOOGLE_PROJECT_ID;
         this.location = process.env.GOOGLE_LOCATION || "us-central1";
 
@@ -41,8 +38,7 @@ class GeminiService {
             },
         });
 
-        // Image Model (Optimization: Instantiate only when needed or keep persistent)
-        // Para simplificar, lo instanciamos aquí pero podríamos hacerlo lazy
+        // Image Model
         this.imageModel = this.vertex_ai.getGenerativeModel({
             model: this.imageModelName,
             generationConfig: {
@@ -145,63 +141,93 @@ class GeminiService {
 
     /**
      * Genera imágenes usando el modelo de imagen.
-     * ACTUALIZADO: Separa Referencias de Estilo vs Contenido para evitar "mezclas".
+     * ACTUALIZADO: Soporta referencias de ESTILO (Manual) y CONTENIDO (Usuario) simultáneamente.
      * * @param {Object} params
      * @param {string} params.prompt - Prompt en inglés
-     * @param {string[]} params.referenceImages - URLs o Rutas Locales de imagenes
-     * @param {boolean} [params.isStyleReference=true] - Si true, fuerza al modelo a copiar solo estética.
+     * @param {string[]} [params.styleReferences] - Imágenes del Manual de Marca (Define CÓMO se ve)
+     * @param {string[]} [params.contentReferences] - Imágenes del Usuario/BD (Define QUÉ se ve/Composición)
+     * @param {string} [params.referenceImages] - (Legacy fallback)
      * @returns {Promise<Object[]>} Array de buffers de imagen generados
      */
     async generateImages({
         prompt,
+        styleReferences = [],
+        contentReferences = [],
+        // Mantenemos compatibilidad hacia atrás por si acaso se llama con el formato antiguo
         referenceImages = [],
         aspectRatio = "1:1",
         numberOfImages = 1,
-        isStyleReference = true, // Default true para Manual de Marca
     }) {
         const parts = [];
 
-        // --- 1. PROCESAMIENTO DE REFERENCIAS (ESTILO) ---
-        if (referenceImages && referenceImages.length > 0) {
-            console.log(
-                `[GeminiService] Procesando ${referenceImages.length} imágenes (Modo Estilo: ${isStyleReference})...`,
-            );
-
-            if (isStyleReference) {
-                // INYECCIÓN DE PROMPT DE SISTEMA PARA ESTILO
-                parts.push({
-                    text: `
-            [SYSTEM INSTRUCTION: VISUAL STYLE TRANSFER]
-            The following images are provided STRICTLY as "Visual Style References" (Brand Identity).
-            
-            YOUR TASK:
-            1. Analyze the Color Palette, Lighting, Texture, Art Direction, and Compositional Vibe of these images.
-            2. DO NOT copy specific objects, people, logos, or scenes found in these images unless explicitly asked in the prompt.
-            3. IGNORE the content of the reference images, FOCUS ONLY on the aesthetic/mood.
-            
-            [REFERENCE IMAGES START]:
-          `,
-                });
-            } else {
-                parts.push({ text: "Here are some reference images for context:" });
-            }
-
-            // Procesar e inyectar las imágenes
-            const imageParts = await this._processReferenceImages(referenceImages);
-            parts.push(...imageParts);
-
-            if (isStyleReference) {
-                parts.push({
-                    text: `
-            [REFERENCE IMAGES END]
-            Now, apply that exact visual style to generate a NEW image based on the following prompt.
-          `,
-                });
-            }
+        // Normalización: Si el controller antiguo manda 'referenceImages', decidimos qué hacer.
+        // Por ahora, si llegan style/content vacíos pero referenceImages lleno, asumimos que son estilo.
+        let styles = styleReferences;
+        if (styles.length === 0 && referenceImages.length > 0 && contentReferences.length === 0) {
+            styles = referenceImages;
         }
 
-        // --- 2. EL PROMPT DEL USUARIO ---
-        let finalPromptText = `[PROMPT]: ${prompt}`;
+        // --- 1. INYECCIÓN DE ESTILO (Manual de Marca) ---
+        if (styles && styles.length > 0) {
+            console.log(
+                `[GeminiService] Inyectando ${styles.length} referencias de ESTILO.`,
+            );
+
+            parts.push({
+                text: `
+          [SYSTEM INSTRUCTION: VISUAL STYLE DEFINITION]
+          The following images define the MANDATORY VISUAL STYLE (Brand Identity).
+          
+          YOUR TASK:
+          1. Extract the Color Palette, Lighting (cinematic/dramatic), and Atmosphere.
+          2. Apply this EXACT aesthetic to the generated image.
+          3. Do NOT copy specific objects from these images, only their "look and feel".
+          
+          [STYLE REFERENCES]:
+        `,
+            });
+
+            // Procesar e inyectar las imágenes de estilo
+            const styleParts = await this._processReferenceImages(styles);
+            parts.push(...styleParts);
+
+            parts.push({
+                text: `[END OF STYLE DEFINITION]`,
+            });
+        }
+
+        // --- 2. INYECCIÓN DE CONTENIDO (Referencias del Usuario / Estructura) ---
+        if (contentReferences && contentReferences.length > 0) {
+            console.log(
+                `[GeminiService] Inyectando ${contentReferences.length} referencias de CONTENIDO/ESTRUCTURA.`,
+            );
+
+            parts.push({
+                text: `
+            [SYSTEM INSTRUCTION: STRUCTURAL GUIDANCE]
+            The following images are provided as COMPOSITION GUIDES.
+            
+            YOUR TASK:
+            1. Use the structure, perspective, camera angle, and subject placement of these images as a blueprint.
+            2. RE-RENDER the scene shown in these images, BUT...
+            3. You MUST replace their original style with the "VISUAL STYLE" defined in the section above.
+            (Example: If this image is a sketch or a painting, render it as a high-end photo using the Brand Style).
+            
+            [CONTENT/STRUCTURE REFERENCES]:
+          `,
+            });
+
+            // Procesar e inyectar las imágenes de contenido
+            const contentParts = await this._processReferenceImages(contentReferences);
+            parts.push(...contentParts);
+
+            parts.push({
+                text: `[END OF STRUCTURAL GUIDANCE]`,
+            });
+        }
+
+        // --- 3. EL PROMPT DEL USUARIO ---
+        let finalPromptText = `[GENERATION PROMPT]: ${prompt}`;
 
         // Agregar instrucción de Aspect Ratio
         if (aspectRatio && aspectRatio !== "1:1") {
@@ -210,15 +236,15 @@ class GeminiService {
 
         parts.push({ text: finalPromptText });
 
-        // --- 3. CONFIGURACIÓN ---
-        // Usamos temperatura media-baja (0.4) para equilibrar creatividad con fidelidad al estilo
+        // --- 4. CONFIGURACIÓN ---
+        // Subimos ligeramente la temperatura (0.45) para permitir la fusión creativa de Estilo + Estructura
         const genConfig = {
             candidateCount: 1,
             maxOutputTokens: 2048,
-            temperature: 0.4,
+            temperature: 0.45,
         };
 
-        // --- 4. EJECUCIÓN ---
+        // --- 5. EJECUCIÓN ---
         try {
             const result = await this.imageModel.generateContent({
                 contents: [{ role: "user", parts: parts }],
