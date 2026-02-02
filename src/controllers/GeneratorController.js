@@ -11,10 +11,20 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Brief from "../model/Brief.model.js";
 import InpaintingService from "../services/InpaintingService.js";
+// IMPORTAMOS SHARP PARA EL PROCESAMIENTO DE IMÁGENES
+import sharp from "sharp";
 
 // Fix para __dirname en ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// --- CONFIGURACIÓN DEL LOGO ---
+// IMPORTANTE: CAMBIA "NOMBRE_EXACTO_DEL_LOGO.png" POR EL NOMBRE REAL DE TU ARCHIVO DE LOGO
+// Este archivo debe estar dentro de la carpeta src/references junto con las otras imágenes.
+const LOGO_FILENAME = "Gemini_Generated_Image_2bx56b2bx56b2bx5.png"; // <--- ¡CAMBIA ESTO!
+const LOGO_PATH = path.join(__dirname, `../references/${LOGO_FILENAME}`);
+
+const LOGO_WIDTH_PERCENTAGE = 0.25; // El logo ocupará el 25% del ancho de la imagen
 
 /**
  * GeneratorController
@@ -78,6 +88,7 @@ class GeneratorController {
 
   /**
    * Generación de Imágenes (Texto a Imagen)
+   * MODIFICADO: Ahora incluye post-procesamiento para añadir el logo.
    */
   async generateImages(req, res) {
     const startTime = Date.now();
@@ -121,45 +132,57 @@ class GeneratorController {
         dimensions: aspectRatio,
       });
 
-      // 3. Optimización OMITIDA (Para preservar estructura Sandwich)
-      // El prompt ya viene estructurado del Builder (y el brief en Inglés del paso 1)
       const finalPrompt = structuredPrompt;
-
       const activeCampaignId = campaignId || "unsorted-assets";
 
-      // -----------------------------------------------------
-      // LOGIC FOR MANDATORY REFERENCES (LOGO & STYLE)
-      // -----------------------------------------------------
-      const mandatoryReferences = await this._getMandatoryShowcaseImages();
+      // 3. Referencias (Manual de Marca)
+      // Obtenemos todas las imágenes de la carpeta references
+      let mandatoryReferences = await this._getMandatoryShowcaseImages();
 
-      if (mandatoryReferences.length > 0) {
+      // OPCIONAL PERO RECOMENDADO: Filtrar el logo para que no se envíe como referencia de estilo a Gemini
+      // (Ya que lo vamos a pegar después, no necesitamos que Gemini intente "inspirarse" en él)
+      const styleReferences = mandatoryReferences.filter(refPath => !refPath.includes(LOGO_FILENAME));
+
+      if (styleReferences.length > 0) {
         console.log(
-          `[GeneratorController:${requestId}] Inyectando ${mandatoryReferences.length} referencias locales.`,
+          `[GeneratorController:${requestId}] Usando ${styleReferences.length} referencias para Style Transfer (Logo excluido del estilo).`,
         );
+      } else if (mandatoryReferences.length > 0 && styleReferences.length === 0) {
+        console.warn(`[GeneratorController:${requestId}] ADVERTENCIA: Solo se encontró el archivo del logo en references. Gemini no tendrá referencias de estilo fotográfico.`);
       }
 
-      // Combinar referencias del body (si las hay) con las obligatorias
-      const combinedReferences = [
-        ...(req.body.referenceImages || []),
-        ...mandatoryReferences,
-      ];
-
-      // 4. Generación via GeminiService (Incluye manejo de imagenes de referencia)
-      // Delegamos la descarga y preparación de imágenes de referencia al servicio.
-      const imageBuffers = await GeminiService.generateImages({
+      // 4. Generación via GeminiService (Style Transfer Puro)
+      const rawImageBuffers = await GeminiService.generateImages({
         prompt: finalPrompt,
-        referenceImages: combinedReferences,
+        referenceImages: styleReferences, // Enviamos solo las referencias de estilo, sin el logo
         aspectRatio: aspectRatio,
         numberOfImages: sampleCount,
+        isStyleReference: true, // Forzamos modo estilo
       });
 
       console.log(
-        `[GeneratorController:${requestId}] ${imageBuffers.length} imágenes generadas. Guardando...`,
+        `[GeneratorController:${requestId}] ${rawImageBuffers.length} imágenes base generadas. Iniciando post-procesamiento de logo...`,
       );
 
-      // 5. Guardado
+      // 5. POST-PROCESAMIENTO: APLICAR LOGO CON SHARP
+      const finalImageBuffers = await Promise.all(
+        rawImageBuffers.map(async (buffer) => {
+          try {
+            return await this._applyBrandLogo(buffer);
+          } catch (logoError) {
+            console.error(
+              `[GeneratorController:${requestId}] Error aplicando logo (Verifica el nombre del archivo en LOGO_FILENAME):`,
+              logoError.message,
+            );
+            // Si falla el logo, devolvemos la imagen original como fallback
+            return buffer;
+          }
+        }),
+      );
+
+      // 6. Guardado
       const savedAssets = await Promise.all(
-        imageBuffers.map((buffer) =>
+        finalImageBuffers.map((buffer) =>
           ImageStorageService.processAndSaveImage({
             buffer,
             campaignId: activeCampaignId,
@@ -187,6 +210,44 @@ class GeneratorController {
   }
 
   /**
+   * Helper privado para aplicar el logo sobre una imagen usando Sharp.
+   */
+  async _applyBrandLogo(baseImageBuffer) {
+    // 1. Verificar si existe el archivo del logo
+    try {
+      await fs.access(LOGO_PATH);
+    } catch (error) {
+      // Este error es común si no cambiaste el LOGO_FILENAME
+      throw new Error(`Logo no encontrado en ${LOGO_PATH}. Asegúrate de configurar LOGO_FILENAME correctamente.`);
+    }
+
+    // 2. Obtener metadata de la imagen base para cálculos
+    const baseImageMetadata = await sharp(baseImageBuffer).metadata();
+    const baseWidth = baseImageMetadata.width;
+
+    // 3. Calcular el tamaño deseado del logo (ej. 25% del ancho de la imagen)
+    // Aseguramos un mínimo de 1 pixel para evitar errores si la imagen base es diminuta
+    const logoWidth = Math.max(1, Math.round(baseWidth * LOGO_WIDTH_PERCENTAGE));
+
+    // 4. Redimensionar el logo
+    const resizedLogoBuffer = await sharp(LOGO_PATH)
+      .resize({ width: logoWidth })
+      .toBuffer();
+
+    // 5. Componer (Overlay) en la esquina superior izquierda (northwest)
+    const compositedImageBuffer = await sharp(baseImageBuffer)
+      .composite([
+        {
+          input: resizedLogoBuffer,
+          gravity: "northwest",
+        },
+      ])
+      .toBuffer();
+
+    return compositedImageBuffer;
+  }
+
+  /**
    * Helper privado para obtener referencias obligatorias
    */
   async _getMandatoryShowcaseImages() {
@@ -194,7 +255,7 @@ class GeneratorController {
     try {
       const files = await fs.readdir(referencesDir);
       return files
-        .filter((file) => /\.(png|jpg|jpeg)$/i.test(file))
+        .filter((file) => /\.(png|jpg|jpeg|webp)$/i.test(file)) // Agregado soporte webp por si acaso
         .map((file) => path.join(referencesDir, file));
     } catch (err) {
       console.warn(
@@ -375,6 +436,11 @@ class GeneratorController {
       // 6. Referencias Obligatorias (Logo, Estilo)
       const mandatoryReferences = await this._getMandatoryShowcaseImages();
 
+      // NOTA: En refinamiento, a veces es útil que Gemini vea el logo para saber dónde NO dibujar cosas importantes,
+      // pero para mantener la consistencia con generateImages, podríamos filtrarlo también.
+      // Por ahora, lo dejamos completo para refinamiento a ver cómo se comporta.
+
+
       // 7. Llamar a Gemini para refinar (Inyectando Prompt Estructurado + Refs)
       const result = await GeminiService.refineImage(
         finalPrompt,
@@ -387,8 +453,22 @@ class GeneratorController {
         const activeCampaignId =
           campaignId || fetchedCampaignId || "fusion-generada";
 
+        // NOTA: Podrías querer aplicar el logo aquí también si el refinamiento lo pierde.
+        // Si el refinamiento es drástico, la imagen resultante podría no tener el logo.
+        // OPCIONAL: Descomenta las siguientes líneas para forzar el logo también en refinamientos.
+        /*
+        let finalRefinedBuffer = result.buffer;
+        try {
+             console.log(`[GeneratorController:${requestId}] Aplicando logo a imagen refinada...`);
+             finalRefinedBuffer = await this._applyBrandLogo(result.buffer);
+        } catch (e) {
+             console.warn("Error aplicando logo en refinamiento, guardando sin logo:", e.message);
+        }
+        */
+        const finalRefinedBuffer = result.buffer; // Usa esto si no descomentas lo de arriba
+
         const savedAsset = await ImageStorageService.processAndSaveImage({
-          buffer: result.buffer,
+          buffer: finalRefinedBuffer,
           campaignId: activeCampaignId,
           prompt: finalPrompt,
           parentAssetId: ids[0], // Linkeamos al primero como padre principal
