@@ -21,7 +21,7 @@ describe('Assets Controller', () => {
     });
 
     beforeEach(() => {
-        req = {};
+        req = { query: {} };
         res = {
             statusCode: 200,
             json: jest.fn(),

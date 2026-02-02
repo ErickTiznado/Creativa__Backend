@@ -10,6 +10,13 @@ jest.unstable_mockModule('../model/Brief.model.js', () => ({
     }
 }));
 
+jest.unstable_mockModule('../model/CampaignAsset.model.js', () => ({
+    default: {
+        where: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue([])
+    }
+}));
+
 // 2. IMPORTS
 const { getCampaigns, getCampaignsDesigners, updateStateCampaign, getCampaingById } = await import('../controllers/campaigns.controller.js');
 const { default: Brief } = await import('../model/Brief.model.js');

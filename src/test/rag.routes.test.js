@@ -17,7 +17,8 @@ jest.unstable_mockModule('nicola-framework', () => ({
 // Mockeamos el controlador para no depender de él
 jest.unstable_mockModule('../controllers/rag.controller.js', () => ({
     ingestManual: jest.fn(),
-    querySearch: jest.fn()
+    querySearch: jest.fn(),
+    get_manual_vectors: jest.fn()
 }));
 
 // 2. SUITE

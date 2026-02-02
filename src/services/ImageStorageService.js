@@ -193,7 +193,8 @@ class ImageStorageService {
   }
 
   async rejectAsset(assetId, userId, reason) {
-    const asset = await CampaignAsset.where("id", assetId).get();
+    const assets = await CampaignAsset.where("id", assetId).get();
+    const asset = assets[0];
 
     if (asset.status !== "draft") {
       throw new Error("Asset is not in draft status");

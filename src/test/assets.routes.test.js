@@ -7,14 +7,16 @@ jest.unstable_mockModule('nicola-framework', () => ({
         constructor() {
             this.routes = [];
         }
-        get(path, handler) {
-            this.routes.push({ method: 'GET', path, handler });
-        }
+        get(path, handler) { this.routes.push({ method: 'GET', path, handler }); }
+        patch(path, handler) { this.routes.push({ method: 'PATCH', path, handler }); }
+        delete(path, handler) { this.routes.push({ method: 'DELETE', path, handler }); }
     }
 }));
 
-jest.unstable_mockModule('../controllers/assets.controller', () => ({
-    getAssets: jest.fn()
+jest.unstable_mockModule('../controllers/assets.controller.js', () => ({
+    getAssets: jest.fn(),
+    updateAsset: jest.fn(),
+    deleteAsset: jest.fn()
 }));
 
 describe('Assets Routes', () => {
@@ -22,9 +24,9 @@ describe('Assets Routes', () => {
     let getAssets;
 
     beforeAll(async () => {
-        const controller = await import('../controllers/assets.controller');
+        const controller = await import('../controllers/assets.controller.js');
         getAssets = controller.getAssets;
-        const routes = await import('../routes/assets.routes');
+        const routes = await import('../routes/assets.routes.js');
         assetsRoutes = routes.default;
     });
 
