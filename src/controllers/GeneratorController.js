@@ -11,7 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Brief from "../model/Brief.model.js";
 import InpaintingService from "../services/InpaintingService.js";
-import { green } from "nicola-framework";
+import { green, cyan, magent, yellow } from "nicola-framework";
 // IMPORTAMOS SHARP PARA EL PROCESAMIENTO DE IMÁGENES
 import sharp from "sharp";
 
@@ -545,6 +545,13 @@ class GeneratorController {
         `[GeneratorController:${requestId}] Iniciando Edición/Inpainting.`,
       );
 
+      console.log(cyan(`[GeneratorController:${requestId}] Request Body (Subset):`), {
+        assetId: req.body.assetId,
+        prompt: req.body.prompt,
+        hasMask: !!req.body.maskImage,
+        hasReferences: !!req.body.referenceImages
+      });
+
       // 1. Validar
       const validatedData = ValidationService.validateInpaintingRequest(
         req.body,
@@ -555,8 +562,9 @@ class GeneratorController {
       const brandId = req.user ? req.user.userId : "anonymous";
 
       console.log(
-        `[GeneratorController] Recibido editImage. AssetId: ${assetId}, ReferenceImages: ${referenceImages?.length || 0}`,
+        magent(`[GeneratorController] Recibido editImage. AssetId: ${assetId}, ReferenceImages: ${referenceImages?.length || 0}`)
       );
+      console.log(magent("Prompt Validado:"), prompt);
 
       const result = await InpaintingService.processInpainting({
         assetId,
