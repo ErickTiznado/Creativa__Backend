@@ -122,7 +122,9 @@ describe('RAG Controller Legacy (ESM)', () => {
             await querySearch(req, res);
 
             expect(res.statusCode).toBe(200);
-            expect(res.end).toHaveBeenCalledWith(expect.stringContaining("Encontrado"));
+            expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({ content_text: "Encontrado" })
+            ]));
         });
 
         test('Debe manejar sin resultados', async () => {

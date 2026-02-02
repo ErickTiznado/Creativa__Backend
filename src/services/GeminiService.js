@@ -1,6 +1,7 @@
 /**
  * Servicio para interactuar con Gemini (Vertex AI).
  * Se encarga de tareas de enriquecimiento de texto y generación creativa (Texto e Imagen).
+ * EDITED: Incluye lógica de separación de Estilo vs Contenido.
  */
 
 import { VertexAI } from "@google-cloud/vertexai";
@@ -143,9 +144,11 @@ class GeminiService {
 
     /**
      * Genera imágenes usando el modelo de imagen.
-     * @param {Object} params
+     * ACTUALIZADO: Separa Referencias de Estilo vs Contenido para evitar "mezclas".
+     * * @param {Object} params
      * @param {string} params.prompt - Prompt en inglés
-     * @param {string[]} params.referenceImages - URLs o Rutas Locales de imagenes de referencia
+     * @param {string[]} params.referenceImages - URLs o Rutas Locales de imagenes
+     * @param {boolean} [params.isStyleReference=true] - Si true, fuerza al modelo a copiar solo estética.
      * @returns {Promise<Object[]>} Array de buffers de imagen generados
      */
     async generateImages({
@@ -153,77 +156,105 @@ class GeminiService {
         referenceImages = [],
         aspectRatio = "1:1",
         numberOfImages = 1,
+        isStyleReference = true, // Default true para Manual de Marca
     }) {
-        // 1. Preparar Parts (Prompt + Imagenes)
-        const parts = [{ text: prompt }];
+        const parts = [];
 
-        // 2. Procesar imágenes de referencia
+        // --- 1. PROCESAMIENTO DE REFERENCIAS (ESTILO) ---
         if (referenceImages && referenceImages.length > 0) {
             console.log(
-                `[GeminiService] Procesando ${referenceImages.length} imágenes de referencia...`,
+                `[GeminiService] Procesando ${referenceImages.length} imágenes (Modo Estilo: ${isStyleReference})...`,
             );
+
+            if (isStyleReference) {
+                // INYECCIÓN DE PROMPT DE SISTEMA PARA ESTILO
+                parts.push({
+                    text: `
+            [SYSTEM INSTRUCTION: VISUAL STYLE TRANSFER]
+            The following images are provided STRICTLY as "Visual Style References" (Brand Identity).
+            
+            YOUR TASK:
+            1. Analyze the Color Palette, Lighting, Texture, Art Direction, and Compositional Vibe of these images.
+            2. DO NOT copy specific objects, people, logos, or scenes found in these images unless explicitly asked in the prompt.
+            3. IGNORE the content of the reference images, FOCUS ONLY on the aesthetic/mood.
+            
+            [REFERENCE IMAGES START]:
+          `,
+                });
+            } else {
+                parts.push({ text: "Here are some reference images for context:" });
+            }
+
+            // Procesar e inyectar las imágenes
             const imageParts = await this._processReferenceImages(referenceImages);
             parts.push(...imageParts);
-        }
 
-        // 3. Configurar parámetros BASE para Gemini
-        // Ajustar candidateCount a 1 por request para máxima compatibilidad
-        // Muchos modelos de imagen via API Gemini solo soportan 1 candidato por llamada.
-        const genConfig = {
-            candidateCount: 1,
-            maxOutputTokens: 4048,
-            temperature: 0.2,
-            imageConfig: {
-                aspectRatio: aspectRatio,
-            },
-        };
-
-        // Agregar instrucción de Aspect Ratio al prompt si no es 1:1
-        if (aspectRatio && aspectRatio !== "1:1") {
-            parts[0].text += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
-        }
-
-        // 4. Ejecutar Generación (Single Request)
-        // Se fuerza a 1 imagen por petición por estabilidad/costo, según solicitud del usuario.
-        const result = await this.imageModel.generateContent({
-            contents: [{ role: "user", parts: parts }],
-            generationConfig: genConfig,
-        });
-
-        const response = await result.response;
-        const candidates = response.candidates || [];
-
-        // 5. Procesar Resultado
-        const generatedImages = [];
-
-        // Solo procesamos el primer candidato o los que lleguen (probablemente 1)
-        for (const candidate of candidates) {
-            const cParts = candidate.content.parts || [];
-            const imagePart = cParts.find((p) => p.inlineData);
-            if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-                generatedImages.push(Buffer.from(imagePart.inlineData.data, "base64"));
+            if (isStyleReference) {
+                parts.push({
+                    text: `
+            [REFERENCE IMAGES END]
+            Now, apply that exact visual style to generate a NEW image based on the following prompt.
+          `,
+                });
             }
         }
 
-        if (generatedImages.length === 0) {
-            // Intentar leer texto de error si no hay imagen
-            let textResponse = "";
-            candidates[0]?.content?.parts?.forEach((p) => {
-                if (p.text) textResponse += p.text;
-            });
-            throw new Error(
-                `Gemini respondió solo texto: ${textResponse.substring(0, 100)}...`,
-            );
+        // --- 2. EL PROMPT DEL USUARIO ---
+        let finalPromptText = `[PROMPT]: ${prompt}`;
+
+        // Agregar instrucción de Aspect Ratio
+        if (aspectRatio && aspectRatio !== "1:1") {
+            finalPromptText += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
         }
 
-        return generatedImages;
+        parts.push({ text: finalPromptText });
+
+        // --- 3. CONFIGURACIÓN ---
+        // Usamos temperatura media-baja (0.4) para equilibrar creatividad con fidelidad al estilo
+        const genConfig = {
+            candidateCount: 1,
+            maxOutputTokens: 2048,
+            temperature: 0.4,
+        };
+
+        // --- 4. EJECUCIÓN ---
+        try {
+            const result = await this.imageModel.generateContent({
+                contents: [{ role: "user", parts: parts }],
+                generationConfig: genConfig,
+            });
+
+            const response = await result.response;
+            const candidates = response.candidates || [];
+            const generatedImages = [];
+
+            for (const candidate of candidates) {
+                const cParts = candidate.content.parts || [];
+                const imagePart = cParts.find((p) => p.inlineData);
+                if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
+                    generatedImages.push(Buffer.from(imagePart.inlineData.data, "base64"));
+                }
+            }
+
+            if (generatedImages.length === 0) {
+                let textResponse = "";
+                candidates[0]?.content?.parts?.forEach((p) => {
+                    if (p.text) textResponse += p.text;
+                });
+                throw new Error(
+                    `Gemini respondió solo texto: ${textResponse.substring(0, 150)}...`,
+                );
+            }
+
+            return generatedImages;
+        } catch (error) {
+            console.error("[GeminiService] Error fatal en generateImages:", error);
+            throw error;
+        }
     }
 
     /**
      * Refina/Fusiona imágenes existentes basado en un prompt.
-     * @param {string} prompt - Prompt de refinamiento
-     * @param {Object[]} imageParts - Array de partes inlineData obtenidas de assets
-     * @param {string[]} referenceImages - [NUEVO] Rutas/URLs de referencias obligatorias (logo, etc.)
      */
     async refineImage(prompt, imageParts, referenceImages = []) {
         if (!imageParts || imageParts.length === 0) {
@@ -311,13 +342,9 @@ class GeminiService {
         }
         return parts;
     }
+
     /**
      * Realiza Inpainting/Edición con MÁSCARA usando Gemini 2.5 Flash Image.
-     * Nota: Este modelo usa Prompt-based editing con máscara como input multimodal.
-     * @param {string} prompt - Instrucción de edición.
-     * @param {string} imageBase64 - Imagen original.
-     * @param {string} maskBase64 - Máscara (Blanco/Negro).
-     * @param {string[]} [referenceImages=[]] - Array of base64 images as references.
      */
     async editImageWithMask(
         prompt,

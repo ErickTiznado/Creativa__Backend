@@ -53,6 +53,9 @@ jest.unstable_mockModule('nicola-framework', () => ({
         endOfLine: jest.fn().mockReturnThis(),
         range: jest.fn().mockReturnThis(),
         digit: jest.fn().mockReturnThis(),
+        group: jest.fn().mockReturnThis(),
+        or: jest.fn().mockReturnThis(),
+        endGroup: jest.fn().mockReturnThis(),
         matches: mockMatches
     }))
 }));
@@ -78,7 +81,11 @@ describe('AuthController Tests (Complete)', () => {
         mockMatches.mockReturnValue(true); // Default valid pattern
 
         req = { body: {}, headers: {}, user: { userId: '123' } };
-        res = { statusCode: 200, json: jest.fn(), status: jest.fn().mockReturnThis() };
+        res = {
+            statusCode: 200,
+            json: jest.fn((x) => console.log("JSON RESPONSE:", x)),
+            status: jest.fn().mockReturnThis()
+        };
 
         process.env.FRONTEND_URL = 'http://localhost';
     });
