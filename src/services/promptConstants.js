@@ -26,60 +26,21 @@ export const PROMPT_CONFIG = {
 
   // Lista simple de IDs de estilos permitidos
   STYLES: [
-    "photorealistic",
     "cinematic",
-    "digital-art",
-    "oil-painting",
-    "minimalist",
-    "neon-punk",
-    "corporate",
-    "sketch",
     "anime",
     "3d-render",
+    "oil-painting",
+    "cyberpunk",
+    "minimalist",
   ],
 };
 
 // Mapa detallado de modificadores por estilo
 export const STYLE_DEFINITIONS = {
-  photorealistic: {
-    prefix: "Professional commercial photography of",
-    suffix:
-      "8k resolution, highly detailed, sharp focus, 35mm lens, raw photo, f/8, natural lighting",
-  },
   cinematic: {
     prefix: "Cinematic shot of",
     suffix:
       "dramatic lighting, movie aesthetic, wide angle, color grading, volumetric lighting, depth of field, anamorphic lens",
-  },
-  "digital-art": {
-    prefix: "High quality digital art of",
-    suffix:
-      "clean lines, vibrant colors, detailed composition, trending on ArtStation, sharp details",
-  },
-  "oil-painting": {
-    prefix: "Oil painting of",
-    suffix:
-      "textured brushstrokes, visible canvas texture, classic art style, rich colors, expressive technique",
-  },
-  minimalist: {
-    prefix: "Minimalist composition of",
-    suffix:
-      "clean background, negative space, simple shapes, limited color palette, flat design, modern aesthetic",
-  },
-  "neon-punk": {
-    prefix: "Cyberpunk aesthetic shot of",
-    suffix:
-      "neon lights, dark atmosphere, futuristic elements, glowing accents, high contrast, ray tracing",
-  },
-  corporate: {
-    prefix: "Professional corporate imagery of",
-    suffix:
-      "clean environment, bright lighting, modern office aesthetic, trustworthy, premium stock photography style",
-  },
-  sketch: {
-    prefix: "Pencil sketch of",
-    suffix:
-      "rough lines, artistic shading, monochromatic or sepia tones, hand-drawn aesthetic, graphite texture",
   },
   anime: {
     prefix: "Anime style illustration of",
@@ -90,6 +51,21 @@ export const STYLE_DEFINITIONS = {
     prefix: "3D render of",
     suffix:
       "Octane render, ray tracing, realistic materials, studio lighting, Unreal Engine 5 quality, C4D",
+  },
+  "oil-painting": {
+    prefix: "Oil painting of",
+    suffix:
+      "textured brushstrokes, visible canvas texture, classic art style, rich colors, expressive technique",
+  },
+  cyberpunk: {
+    prefix: "Cyberpunk aesthetic shot of",
+    suffix:
+      "neon lights, dark atmosphere, futuristic elements, glowing accents, high contrast, ray tracing",
+  },
+  minimalist: {
+    prefix: "Minimalist composition of",
+    suffix:
+      "clean background, negative space, simple shapes, limited color palette, flat design, modern aesthetic",
   },
 };
 
