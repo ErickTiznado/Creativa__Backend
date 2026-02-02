@@ -11,6 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Brief from "../model/Brief.model.js";
 import InpaintingService from "../services/InpaintingService.js";
+import { green } from "nicola-framework";
 
 // Fix para __dirname en ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -93,6 +94,13 @@ class GeneratorController {
         style,
         sampleCount,
       } = ValidationService.validateImageGenerationRequest(req.body);
+
+
+
+      console.log("aspectRatio", aspectRatio);
+      console.log("campaignId", campaignId);
+      console.log("style", style);
+      console.log("sampleCount", sampleCount);
 
       const brandId = req.user ? req.user.userId : "anonymous";
 
@@ -335,6 +343,7 @@ class GeneratorController {
         campaignId,
       } = req.body;
 
+      console.log(green("aspectRatio", aspectRatio));
       if (!assetIds || !refinementPrompt) {
         throw new Error("Faltan assetIds o refinementPrompt");
       }
