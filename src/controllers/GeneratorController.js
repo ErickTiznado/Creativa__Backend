@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 // --- CONFIGURACIÓN DEL LOGO ---
 // IMPORTANTE: CAMBIA "NOMBRE_EXACTO_DEL_LOGO.png" POR EL NOMBRE REAL DE TU ARCHIVO DE LOGO
 // Este archivo debe estar dentro de la carpeta src/references junto con las otras imágenes.
-const LOGO_FILENAME = "Gemini_Generated_Image_2bx56b2bx56b2bx5.png"; // <--- ¡CAMBIA ESTO!
+const LOGO_FILENAME = "Gemini_Generated_Image_2bx56b2bx56b2bx5.png"; // <--- Asegúrate que este sea el PNG transparente
 const LOGO_PATH = path.join(__dirname, `../references/${LOGO_FILENAME}`);
 
 const LOGO_WIDTH_PERCENTAGE = 0.25; // El logo ocupará el 25% del ancho de la imagen
@@ -88,7 +88,7 @@ class GeneratorController {
 
   /**
    * Generación de Imágenes (Texto a Imagen)
-   * MODIFICADO: Ahora incluye post-procesamiento para añadir el logo.
+   * MODIFICADO: Soporta Dual Reference (Estilo de Marca + Contenido de Usuario) + Logo Overlay.
    */
   async generateImages(req, res) {
     const startTime = Date.now();
@@ -135,29 +135,32 @@ class GeneratorController {
       const finalPrompt = structuredPrompt;
       const activeCampaignId = campaignId || "unsorted-assets";
 
-      // 3. Referencias (Manual de Marca)
-      // Obtenemos todas las imágenes de la carpeta references
-      let mandatoryReferences = await this._getMandatoryShowcaseImages();
+      // --- 3. GESTIÓN DE REFERENCIAS (Lógica Dual) ---
 
-      // OPCIONAL PERO RECOMENDADO: Filtrar el logo para que no se envíe como referencia de estilo a Gemini
-      // (Ya que lo vamos a pegar después, no necesitamos que Gemini intente "inspirarse" en él)
+      // A. Referencias de Estilo (Manual de Marca - Local)
+      const mandatoryReferences = await this._getMandatoryShowcaseImages();
+      // Filtramos el logo para que no afecte el estilo fotográfico
       const styleReferences = mandatoryReferences.filter(refPath => !refPath.includes(LOGO_FILENAME));
 
+      // B. Referencias de Contenido (Subidas por Usuario - Frontend)
+      // 'referenceImages' viene del body cuando el usuario selecciona o sube una imagen en la UI
+      const userContentReferences = req.body.referenceImages || [];
+
+      // Logs de control
       if (styleReferences.length > 0) {
-        console.log(
-          `[GeneratorController:${requestId}] Usando ${styleReferences.length} referencias para Style Transfer (Logo excluido del estilo).`,
-        );
-      } else if (mandatoryReferences.length > 0 && styleReferences.length === 0) {
-        console.warn(`[GeneratorController:${requestId}] ADVERTENCIA: Solo se encontró el archivo del logo en references. Gemini no tendrá referencias de estilo fotográfico.`);
+        console.log(`[GeneratorController:${requestId}] Usando ${styleReferences.length} referencias de ESTILO (Manual de Marca).`);
+      }
+      if (userContentReferences.length > 0) {
+        console.log(`[GeneratorController:${requestId}] Usando ${userContentReferences.length} referencias de CONTENIDO (Usuario).`);
       }
 
-      // 4. Generación via GeminiService (Style Transfer Puro)
+      // 4. Generación via GeminiService (Dual Reference Mode)
       const rawImageBuffers = await GeminiService.generateImages({
         prompt: finalPrompt,
-        referenceImages: styleReferences, // Enviamos solo las referencias de estilo, sin el logo
+        styleReferences: styleReferences,       // Manual de marca (Define CÓMO se ve)
+        contentReferences: userContentReferences, // Imágenes del usuario (Define QUÉ se ve)
         aspectRatio: aspectRatio,
         numberOfImages: sampleCount,
-        isStyleReference: true, // Forzamos modo estilo
       });
 
       console.log(
@@ -436,11 +439,6 @@ class GeneratorController {
       // 6. Referencias Obligatorias (Logo, Estilo)
       const mandatoryReferences = await this._getMandatoryShowcaseImages();
 
-      // NOTA: En refinamiento, a veces es útil que Gemini vea el logo para saber dónde NO dibujar cosas importantes,
-      // pero para mantener la consistencia con generateImages, podríamos filtrarlo también.
-      // Por ahora, lo dejamos completo para refinamiento a ver cómo se comporta.
-
-
       // 7. Llamar a Gemini para refinar (Inyectando Prompt Estructurado + Refs)
       const result = await GeminiService.refineImage(
         finalPrompt,
@@ -453,22 +451,8 @@ class GeneratorController {
         const activeCampaignId =
           campaignId || fetchedCampaignId || "fusion-generada";
 
-        // NOTA: Podrías querer aplicar el logo aquí también si el refinamiento lo pierde.
-        // Si el refinamiento es drástico, la imagen resultante podría no tener el logo.
-        // OPCIONAL: Descomenta las siguientes líneas para forzar el logo también en refinamientos.
-        /*
-        let finalRefinedBuffer = result.buffer;
-        try {
-             console.log(`[GeneratorController:${requestId}] Aplicando logo a imagen refinada...`);
-             finalRefinedBuffer = await this._applyBrandLogo(result.buffer);
-        } catch (e) {
-             console.warn("Error aplicando logo en refinamiento, guardando sin logo:", e.message);
-        }
-        */
-        const finalRefinedBuffer = result.buffer; // Usa esto si no descomentas lo de arriba
-
         const savedAsset = await ImageStorageService.processAndSaveImage({
-          buffer: finalRefinedBuffer,
+          buffer: result.buffer,
           campaignId: activeCampaignId,
           prompt: finalPrompt,
           parentAssetId: ids[0], // Linkeamos al primero como padre principal
