@@ -8,6 +8,7 @@ import { VertexAI } from "@google-cloud/vertexai";
 import axios from "axios";
 import fs from "fs/promises";
 import path from "path";
+import { blue, red, yellow } from "nicola-framework";
 
 class GeminiService {
     constructor() {
@@ -354,8 +355,9 @@ class GeminiService {
     ) {
         try {
             console.log(
-                `[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`,
+                blue(`[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`),
             );
+            console.log(blue("Prompt objetivo:"), prompt);
 
             // Prompt específico para instruir al modelo sobre el uso de la máscara y referencias
             const manualPrompt = `
@@ -364,6 +366,9 @@ class GeminiService {
       [Mask Info]: The second image attached is a mask. White areas represent the region to edit. Black areas must be preserved exactly.
       ${referenceImages.length > 0 ? "[References]: The subsequent images are visual references to guide the style or content of the generated area." : ""}
       `;
+
+            console.log(yellow("[GeminiService] Manual Prompt Constructed:"));
+            console.log(yellow(manualPrompt));
 
             const parts = [
                 { text: manualPrompt },
@@ -429,7 +434,7 @@ class GeminiService {
                 );
             }
         } catch (error) {
-            console.error("[GeminiService] Error en editImageWithMask:", error);
+            console.error(red("[GeminiService] Error en editImageWithMask:"), error);
             throw error;
         }
     }
