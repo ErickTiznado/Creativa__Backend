@@ -1,11 +1,29 @@
 /**
  * Servicio encargado de ensamblar el prompt final.
  * Fusión de System Instructions + Contexto RAG + Brief Usuario + Modificadores.
- * Implementación optimizada con Jerarquía de Atención (Sandwich Structure) y Sanitización Anti-Alucinaciones.
+ * Implementación optimizada con Jerarquía de Atención y Sanitización.
+ * EDITED: Enfoque "Híbrido" -> Prepara el lienzo para el estampado posterior del logo con Sharp.
  */
 
 import { SYSTEM_INSTRUCTIONS, STYLE_DEFINITIONS } from "./promptConstants.js";
 import { BrandSanitizer } from "./BrandSanitizer.js";
+
+// --- REGLAS INMUTABLES DE MARCA (NUEVO) ---
+const BRAND_ENFORCEMENT = {
+  // REGLA 1: COMPOSICIÓN (Prepara el terreno para el estampado)
+  COMPOSITION_RULE: `
+    COMPOSITION & LAYOUT CRITICAL INSTRUCTION:
+    - The image MUST have CLEAN NEGATIVE SPACE in the top-left corner.
+    - Do NOT place complex objects, bright lights, faces, or busy textures in the top-left area.
+    - This area is reserved for a branding overlay that will be applied later. Keep it uncluttered.
+  `,
+  // REGLA 2: ATMÓSFERA (Gradientes Rojizos)
+  ATMOSPHERE_RULE: `
+    BRAND ATMOSPHERE:
+    - Regardless of the scene, the lighting MUST feature SUBTLE REDDISH GRADIENTS (Hex #FF0000 to #8B0000 range).
+    - The red gradient should act as a cinematic light source or an ambient glow blending into the shadows.
+  `,
+};
 
 class PromptBuilder {
   constructor() {
@@ -36,25 +54,27 @@ class PromptBuilder {
     parts.push(brief);
 
     // ---------------------------------------------------------
-    // CAPA 2: CONTEXTO DE MARCA (Sanitizado)
+    // CAPA 2: REGLAS DE MARCA (Forzadas - NUEVO)
+    // ---------------------------------------------------------
+    parts.push(BRAND_ENFORCEMENT.ATMOSPHERE_RULE);
+    parts.push(BRAND_ENFORCEMENT.COMPOSITION_RULE);
+
+    // ---------------------------------------------------------
+    // CAPA 3: CONTEXTO DE MARCA (Sanitizado)
     // ---------------------------------------------------------
     if (cleanBrand) {
-      // Inyectamos colores solo si existen
+      // Inyectamos colores solo si existen (como acentos secundarios)
       if (cleanBrand.colors && cleanBrand.colors.length > 0) {
-        parts.push(`Color Palette: ${cleanBrand.colors.join(", ")}`);
-        // Sugerencia sutil de iluminación con el color primario
-        parts.push(
-          `Lighting: Natural lighting with subtle accents in ${cleanBrand.colors[0]}`,
-        );
+        parts.push(`Secondary Palette Accents: ${cleanBrand.colors.join(", ")}`);
       }
-      // Forzamos entorno si el sanitizer lo dicta (ej: "Modern clean office")
+      // Forzamos entorno si el sanitizer lo dicta
       if (cleanBrand.environment) {
         parts.push(`Background/Environment: ${cleanBrand.environment}`);
       }
     }
 
     // ---------------------------------------------------------
-    // CAPA 3: CALIDAD Y TÉCNICA (Boilerplate)
+    // CAPA 4: CALIDAD Y TÉCNICA (Boilerplate)
     // ---------------------------------------------------------
     parts.push(this.qualityBoilerplate);
 
@@ -65,9 +85,17 @@ class PromptBuilder {
     }
 
     // ---------------------------------------------------------
-    // CAPA 4: NEGATIVOS (Dinámicos - Realism Shield)
+    // CAPA 5: NEGATIVOS (Dinámicos - Realism Shield + Text Shield)
     // ---------------------------------------------------------
-    let negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT;
+    let negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT || [];
+
+    // CRÍTICO: Prohibimos "texto" y "logos" para que la IA no intente dibujarlos mal.
+    const textShield = [
+      "text", "typography", "letters", "words", "watermark",
+      "signature", "logo", "brand name", "writing", "font",
+      "blurred text", "warped letters", "double exposure"
+    ];
+    negatives = [...negatives, ...textShield];
 
     // Si el sanitizer detectó "Tech", activamos el escudo Anti-Holograma
     if (cleanBrand && cleanBrand.requiresRealismShield) {
@@ -86,18 +114,11 @@ class PromptBuilder {
       negatives = [...negatives, ...shieldNegatives];
     }
 
-    // ---------------------------------------------------------
-    // CAPA 5: ESCUDO ANTI-TEXTO (Política de Pureza Visual)
-    // ---------------------------------------------------------
-    // Refuerzo explícito para garantizar que no haya texto, según solicitud del usuario.
-    const textShield = ["text", "typography", "letters", "words", "watermark"];
-    negatives = [...negatives, ...textShield];
-
     // Unir negativos únicos
     const uniqueNegatives = [...new Set(negatives)].join(", ");
 
     // Retorno: Prompt Positivo separada por comas + Negativos
-    return `${parts.join(", ")}\n\n--no ${uniqueNegatives}`;
+    return `${parts.join("\n")}\n\n--no ${uniqueNegatives}`;
   }
 
   /**

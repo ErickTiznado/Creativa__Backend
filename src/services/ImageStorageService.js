@@ -10,7 +10,7 @@ import VectorCore from "./VectorCore.js";
 import { PatternBuilder } from "nicola-framework";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const KEY_PATH = path.join(__dirname, "../config/key/creativa-key.json");
+const KEY_PATH = path.join(__dirname, "../../config/key/creativa-key.json");
 const save_location = {
   temp: "temp",
   approved: "approved",
