@@ -1,6 +1,6 @@
-import { ChatSession } from "../model/ChatSession.model.js";
+import ChatSession from "../model/ChatSession.model.js";
 
-const getChatSessionById = async (req, res) => {
+export const getChatSessionById = async (req, res) => {
   const { id } = req.params;
   const chatSession = await ChatSession.where("id", id).get();
   res.json(chatSession);
