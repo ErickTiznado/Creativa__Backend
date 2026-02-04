@@ -18,7 +18,7 @@ import { brief_DB } from "../controllers/brief-db.controller.js";
 // TAREA 3: Importación de Middlewares de Seguridad
 import { requireAuth } from "../middlewares/AuthMiddleware.js";
 import { requireRole } from "../middlewares/roleMiddleware.js";
-import { getChatSessionById } from "../controllers/chat.controller.js";
+import { getChatSessionById, getChatSessionByCampaignId } from "../controllers/chat.controller.js";
 
 // Instancia del enrutador de Nicola Framework
 const RemoteRoute = new Remote();
@@ -72,5 +72,8 @@ RemoteRoute.post(
 );
 
 RemoteRoute.get("/chat/:id", getChatSessionById);
+
+RemoteRoute.get("/chat/campaign", getChatSessionByCampaignId);
+RemoteRoute.get("/chat/campaign/", getChatSessionByCampaignId);
 
 export default RemoteRoute;
