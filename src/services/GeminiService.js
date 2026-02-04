@@ -1,7 +1,10 @@
 /**
  * Servicio para interactuar con Gemini (Vertex AI).
  * Se encarga de tareas de enriquecimiento de texto y generación creativa (Texto e Imagen).
- * EDITED: Soporta referencias DUALES (Estilo del Manual + Estructura del Usuario).
+ * EDITED: VERSIÓN FINAL "MASTER".
+ * - Incluye Sharp para estampado de logo.
+ * - Incluye Lógica Adaptativa en refineImage (Objetos/Personas/Temas).
+ * - Incluye Estampado de Texto DINÁMICO (Posicionable vía Prompt).
  */
 
 import { VertexAI } from "@google-cloud/vertexai";
@@ -10,6 +13,23 @@ import fs from "fs/promises";
 import path from "path";
 import { blue, red, yellow } from "nicola-framework";
 import config from "../config/index.js";
+import sharp from "sharp"; // REQUERIDO: npm install sharp
+
+// RUTA ABSOLUTA AL LOGO OFICIAL
+const LOGO_PATH = path.join(
+  process.cwd(),
+  "src",
+  "references",
+  "logo_creativa.png",
+);
+// RUTA A LA FUENTE (TIPOGRAFÍA) - Montserrat-Bold renombrada
+const FONT_PATH = path.join(
+  process.cwd(),
+  "src",
+  "assets",
+  "fonts",
+  "brand-font.ttf",
+);
 
 class GeminiService {
   constructor() {
@@ -74,10 +94,10 @@ class GeminiService {
             4. Output ONLY the enhanced description. No introductions like "Here is the enhanced brief".
             5. IMPORTANT: Write the output in ENGLISH. This will be used directly for image generation.
             6. NEGATIVE CONSTRAINTS (STRICT):
-               - Do NOT include holograms, futuristic interfaces, glowing blue data, floating charts, or iron-man style HUDs.
-               - Do NOT make it look like a sci-fi movie. Keep it grounded in a contemporary, realistic setting.
-               - Even if the brief mentions "tech" or "data", visualize it as PHYSICAL screens (monitors, tablets, projectors), NOT holograms.
-               - Avoid "cyberpunk" or "neon" aesthetics unless the style explicitly requests 'neon-punk'.
+                - Do NOT include holograms, futuristic interfaces, glowing blue data, floating charts, or iron-man style HUDs.
+                - Do NOT make it look like a sci-fi movie. Keep it grounded in a contemporary, realistic setting.
+                - Even if the brief mentions "tech" or "data", visualize it as PHYSICAL screens (monitors, tablets, projectors), NOT holograms.
+                - Avoid "cyberpunk" or "neon" aesthetics unless the style explicitly requests 'neon-punk'.
             `;
 
       const request = {
@@ -146,28 +166,48 @@ class GeminiService {
   }
 
   /**
-   * Genera imágenes usando el modelo de imagen.
-   * ACTUALIZADO: Soporta referencias de ESTILO (Manual) y CONTENIDO (Usuario) simultáneamente.
-   * * @param {Object} params
-   * @param {string} params.prompt - Prompt en inglés
-   * @param {string[]} [params.styleReferences] - Imágenes del Manual de Marca (Define CÓMO se ve)
-   * @param {string[]} [params.contentReferences] - Imágenes del Usuario/BD (Define QUÉ se ve/Composición)
-   * @param {string} [params.referenceImages] - (Legacy fallback)
-   * @returns {Promise<Object[]>} Array de buffers de imagen generados
+   * Genera imágenes, estampa LOGO y estampa TEXTO (Posicionable).
+   * Actualizado para soportar referencias de estilo y contenido.
    */
   async generateImages({
     prompt,
     styleReferences = [],
     contentReferences = [],
-    // Mantenemos compatibilidad hacia atrás por si acaso se llama con el formato antiguo
     referenceImages = [],
     aspectRatio = "1:1",
     numberOfImages = 1,
   }) {
+    // --- PREPARACIÓN / EXTRACTION (Remote) ---
+    let textToRender = null;
+    let textPosition = "arriba-centro"; // Default
+    let cleanPrompt = prompt;
+
+    // 1. Extraer Texto: TEXTO: "Hola Mundo"
+    const textMatch = prompt.match(/TEXTO:\s*"([^"]+)"/i);
+    if (textMatch) {
+      textToRender = textMatch[1];
+      cleanPrompt = cleanPrompt.replace(textMatch[0], ""); // Limpiamos el comando
+    }
+
+    // 2. Extraer Posición: POSICION: "abajo-derecha"
+    const posMatch = prompt.match(/POSICION:\s*"([^"]+)"/i);
+    if (posMatch) {
+      textPosition = posMatch[1].toLowerCase().trim();
+      cleanPrompt = cleanPrompt.replace(posMatch[0], ""); // Limpiamos el comando
+    }
+
+    cleanPrompt = cleanPrompt.trim();
+
+    if (textToRender) {
+      console.log(
+        `[GeminiService] Config Texto -> Contenido: "${textToRender}", Posición: "${textPosition}"`,
+      );
+    }
+
+    // --- CONSTRUCCIÓN DE PARTES (HEAD + Remote) ---
     const parts = [];
 
-    // Normalización: Si el controller antiguo manda 'referenceImages', decidimos qué hacer.
-    // Por ahora, si llegan style/content vacíos pero referenceImages lleno, asumimos que son estilo.
+    // Compatibilidad
     let styles = styleReferences;
     if (
       styles.length === 0 &&
@@ -177,86 +217,84 @@ class GeminiService {
       styles = referenceImages;
     }
 
-    // --- 1. INYECCIÓN DE ESTILO (Manual de Marca) ---
+    // 1. STYLE INJECTION (HEAD logic preferred for structure)
     if (styles && styles.length > 0) {
       console.log(
         `[GeminiService] Inyectando ${styles.length} referencias de ESTILO.`,
       );
-
       parts.push({
         text: `
           [SYSTEM INSTRUCTION: VISUAL STYLE DEFINITION]
           The following images define the MANDATORY VISUAL STYLE (Brand Identity).
-          
           YOUR TASK:
           1. Extract the Color Palette, Lighting (cinematic/dramatic), and Atmosphere.
           2. Apply this EXACT aesthetic to the generated image.
           3. Do NOT copy specific objects from these images, only their "look and feel".
-          
           [STYLE REFERENCES]:
         `,
       });
-
-      // Procesar e inyectar las imágenes de estilo
       const styleParts = await this._processReferenceImages(styles);
       parts.push(...styleParts);
-
-      parts.push({
-        text: `[END OF STYLE DEFINITION]`,
-      });
+      parts.push({ text: `[END OF STYLE DEFINITION]` });
     }
 
-    // --- 2. INYECCIÓN DE CONTENIDO (Referencias del Usuario / Estructura) ---
+    // 2. CONTENT INJECTION (HEAD logic)
     if (contentReferences && contentReferences.length > 0) {
       console.log(
         `[GeminiService] Inyectando ${contentReferences.length} referencias de CONTENIDO/ESTRUCTURA.`,
       );
-
       parts.push({
         text: `
             [SYSTEM INSTRUCTION: STRUCTURAL GUIDANCE]
             The following images are provided as COMPOSITION GUIDES.
-            
             YOUR TASK:
             1. Use the structure, perspective, camera angle, and subject placement of these images as a blueprint.
             2. RE-RENDER the scene shown in these images, BUT...
             3. You MUST replace their original style with the "VISUAL STYLE" defined in the section above.
-            (Example: If this image is a sketch or a painting, render it as a high-end photo using the Brand Style).
-            
             [CONTENT/STRUCTURE REFERENCES]:
           `,
       });
-
-      // Procesar e inyectar las imágenes de contenido
       const contentParts =
         await this._processReferenceImages(contentReferences);
       parts.push(...contentParts);
-
-      parts.push({
-        text: `[END OF STRUCTURAL GUIDANCE]`,
-      });
+      parts.push({ text: `[END OF STRUCTURAL GUIDANCE]` });
     }
 
-    // --- 3. EL PROMPT DEL USUARIO ---
-    let finalPromptText = `[GENERATION PROMPT]: ${prompt}`;
+    // 3. USER PROMPT + TECHNICAL SPECS (Merged)
+    let finalPromptText = `[GENERATION PROMPT]: ${cleanPrompt}`;
 
-    // Agregar instrucción de Aspect Ratio
+    // Add text spacing instructions (Remote)
+    if (textToRender) {
+      finalPromptText += " \n\n[LAYOUT CONSTRAINT]:";
+      if (textPosition.includes("arriba"))
+        finalPromptText +=
+          " VITAL: Leave the TOP 30% of the image empty (negative space) for text overlay.";
+      else if (textPosition.includes("abajo"))
+        finalPromptText +=
+          " VITAL: Leave the BOTTOM 30% of the image empty (negative space) for text overlay.";
+      else if (textPosition.includes("centro"))
+        finalPromptText +=
+          " VITAL: Keep the CENTER area relatively clean or with low contrast for text overlay.";
+    }
+
+    finalPromptText += ` \n\n[FINAL CHECK]: Ensure reddish gradients in lighting. NO TEXT, NO LOGOS written by AI.`;
+
     if (aspectRatio && aspectRatio !== "1:1") {
       finalPromptText += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
     }
 
     parts.push({ text: finalPromptText });
 
-    // --- 4. CONFIGURACIÓN ---
-    // Subimos ligeramente la temperatura (0.45) para permitir la fusión creativa de Estilo + Estructura
+    // --- EXECUTION ---
+    // Subimos temperatura para permitir creatividad (HEAD: 0.45)
     const genConfig = {
       candidateCount: 1,
       maxOutputTokens: 2048,
       temperature: 0.45,
     };
 
-    // --- 5. EJECUCIÓN ---
     try {
+      console.log("[GeminiService] 1. Generando imagen base limpia con IA...");
       const result = await this.imageModel.generateContent({
         contents: [{ role: "user", parts: parts }],
         generationConfig: genConfig,
@@ -264,19 +302,19 @@ class GeminiService {
 
       const response = await result.response;
       const candidates = response.candidates || [];
-      const generatedImages = [];
+      const generatedBuffers = [];
 
       for (const candidate of candidates) {
         const cParts = candidate.content.parts || [];
         const imagePart = cParts.find((p) => p.inlineData);
-        if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-          generatedImages.push(
+        if (imagePart?.inlineData?.data) {
+          generatedBuffers.push(
             Buffer.from(imagePart.inlineData.data, "base64"),
           );
         }
       }
 
-      if (generatedImages.length === 0) {
+      if (generatedBuffers.length === 0) {
         let textResponse = "";
         candidates[0]?.content?.parts?.forEach((p) => {
           if (p.text) textResponse += p.text;
@@ -286,7 +324,20 @@ class GeminiService {
         );
       }
 
-      return generatedImages;
+      // --- POST-PROCESAMIENTO (Remote) ---
+      console.log("[GeminiService] 2. Estampando logo oficial con Sharp...");
+      let finalImages = await this._overlayBranding(generatedBuffers);
+
+      if (textToRender) {
+        console.log("[GeminiService] 3. Estampando texto dinámico...");
+        finalImages = await this._overlayText(
+          finalImages,
+          textToRender,
+          textPosition,
+        );
+      }
+
+      return finalImages;
     } catch (error) {
       console.error("[GeminiService] Error fatal en generateImages:", error);
       throw error;
@@ -295,22 +346,42 @@ class GeminiService {
 
   /**
    * Refina/Fusiona imágenes existentes basado en un prompt.
+   * LÓGICA ADAPTATIVA (Objetos, Personas, Temática).
    */
   async refineImage(prompt, imageParts, referenceImages = []) {
     if (!imageParts || imageParts.length === 0) {
       throw new Error("Se requieren imágenes para refinar.");
     }
 
-    const parts = [{ text: prompt }];
+    // Using Remote Adaptive Logic
+    let adaptivePrompt = `
+      TASK: Edit the Primary Image (Image 1) based on the User Instructions.
 
-    // 1. Añadir imágenes a editar (Subject)
+      USER INSTRUCTIONS: "${prompt}"
+
+      [INTELLIGENT EDITING LOGIC - FOLLOW STRICTLY]:
+      1. SCENARIO A (Object Change): If user asks to change/remove props (screens, tables, items), you MUST PRESERVE the people and the room architecture exactly.
+      2. SCENARIO B (People Change): If user asks to change the people (gender, action, clothing), you MUST PRESERVE the background/office and the lighting vibe.
+      3. SCENARIO C (Theme Change): If user asks to change the style/theme, you may adapt the scene, BUT you must retain the core composition and camera angle.
+
+      [IMMUTABLE BRAND RULES - NEVER BREAK THESE]:
+      - LOGO SAFETY: The "Creativa Studios" logo in the corner MUST REMAIN VISIBLE. Do not crop it out or distort it into illegibility.
+      - LIGHTING: The scene MUST maintain the signature reddish gradient lighting.
+    `;
+
+    const parts = [];
+    parts.push({ text: adaptivePrompt });
+    parts.push({ text: "[PRIMARY IMAGE TO EDIT]:" });
     parts.push(...imageParts);
 
-    // 2. Añadir referencias obligatorias (Style/Logo)
     if (referenceImages && referenceImages.length > 0) {
-      console.log(
-        `[GeminiService] Añadiendo ${referenceImages.length} referencias al refinamiento...`,
-      );
+      console.log(`[GeminiService] Añadiendo referencias para INSPIRACIÓN.`);
+      parts.push({
+        text: `
+          [STYLE REFERENCES]: Use these only for color/lighting inspiration if the user asks for a theme change. 
+          Do NOT copy objects from here unless requested.
+          `,
+      });
       const refParts = await this._processReferenceImages(referenceImages);
       parts.push(...refParts);
     }
@@ -319,35 +390,214 @@ class GeminiService {
       contents: [{ role: "user", parts }],
     };
 
-    console.log(
-      `[GeminiService] Refinando/Fusionando con ${imageParts.length} assets y ${referenceImages.length} referencias...`,
-    );
+    console.log(`[GeminiService] Ejecutando refinamiento ADAPTATIVO...`);
 
-    const result = await this.imageModel.generateContent(reqContent);
-    const response = await result.response;
-    const candidate = response.candidates[0];
+    try {
+      const result = await this.imageModel.generateContent(reqContent);
+      const response = await result.response;
+      const candidate = response.candidates[0];
+      const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
 
-    // Buscar imagen en respuesta
-    const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
+      let textResponse = "";
+      candidate?.content?.parts?.forEach((p) => {
+        if (p.text) textResponse += p.text;
+      });
 
-    // Buscar texto (comentarios)
-    let textResponse = "";
-    candidate?.content?.parts?.forEach((p) => {
-      if (p.text) textResponse += p.text;
-    });
-
-    if (imagePart) {
-      return {
-        buffer: Buffer.from(imagePart.inlineData.data, "base64"),
-        text: textResponse,
-      };
-    } else {
-      return { buffer: null, text: textResponse };
+      if (imagePart) {
+        return {
+          buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+          text: textResponse,
+        };
+      } else {
+        return { buffer: null, text: textResponse };
+      }
+    } catch (error) {
+      console.error("[GeminiService] Error en refineImage:", error);
+      throw error;
     }
   }
 
   /**
-   * Helper privado para descargar imágenes de referencia (URL) o leer locales.
+   * Realiza Inpainting/Edición con MÁSCARA.
+   */
+  async editImageWithMask(
+    prompt,
+    imageBase64,
+    maskBase64,
+    referenceImages = [],
+  ) {
+    try {
+      console.log(
+        `[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`,
+      );
+
+      const manualPrompt = `
+      [TASK]: Perform Inpainting/Editing on IMAGE 1 using MASK 1 (IMAGE 2).
+      [GOAL]: ${prompt}
+      [MASK INFO]: White areas = edit. Black areas = PRESERVE EXACTLY (including existing logos).
+      
+      [MANDATORY CONSTRAINTS]:
+      1. Ensure the edited area integrates seamlessly with reddish gradient lighting.
+      2. Do NOT touch anything outside the white mask area.
+      
+      ${referenceImages.length > 0 ? "[STYLE REFERENCES (SECONDARY)]: The subsequent images are for atmospheric inspiration only for the edited area. Do NOT copy their content." : ""}
+      `;
+
+      const parts = [
+        { text: manualPrompt },
+        { inlineData: { mimeType: "image/png", data: imageBase64 } },
+        { inlineData: { mimeType: "image/png", data: maskBase64 } },
+      ];
+
+      if (referenceImages && referenceImages.length > 0) {
+        referenceImages.forEach((refBase64) => {
+          const cleanRef = refBase64.replace(/^data:image\/\w+;base64,/, "");
+          parts.push({ inlineData: { mimeType: "image/png", data: cleanRef } });
+        });
+      }
+
+      const genConfig = {
+        candidateCount: 1,
+        maxOutputTokens: 2048,
+        temperature: 0.25,
+      };
+
+      const result = await this.imageModel.generateContent({
+        contents: [{ role: "user", parts: parts }],
+        generationConfig: genConfig,
+      });
+
+      const response = await result.response;
+      const candidate = response.candidates[0];
+      const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
+      let textResponse = "";
+      candidate?.content?.parts?.forEach((p) => {
+        if (p.text) textResponse += p.text;
+      });
+
+      if (imagePart) {
+        return {
+          buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+          text: textResponse,
+        };
+      } else {
+        throw new Error(
+          `Gemini no generó imagen. Respuesta texto: ${textResponse}`,
+        );
+      }
+    } catch (error) {
+      console.error("[GeminiService] Error en editImageWithMask:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Método privado para estampar el logo usando Sharp.
+   */
+  async _overlayBranding(imageBuffers) {
+    try {
+      const logoBuffer = await fs.readFile(LOGO_PATH);
+
+      const processedPromises = imageBuffers.map(async (inputBuffer) => {
+        const metadata = await sharp(inputBuffer).metadata();
+        const baseWidth = metadata.width;
+
+        const targetLogoWidth = Math.round(baseWidth * 0.2);
+        const resizedLogo = await sharp(logoBuffer)
+          .resize({ width: targetLogoWidth })
+          .toBuffer();
+        const margin = Math.round(baseWidth * 0.04);
+
+        return await sharp(inputBuffer)
+          .composite([
+            {
+              input: resizedLogo,
+              gravity: "northwest",
+              top: margin,
+              left: margin,
+              blend: "over",
+            },
+          ])
+          .png()
+          .toBuffer();
+      });
+
+      return Promise.all(processedPromises);
+    } catch (error) {
+      console.warn(
+        `[GeminiService] ⚠️ ALERTA: Falló el estampado del logo (${error.message}). Devolviendo imagen base.`,
+      );
+      return imageBuffers;
+    }
+  }
+
+  /**
+   * Método privado para estampar TEXTO DINÁMICO.
+   */
+  async _overlayText(imageBuffers, text, position = "arriba-centro") {
+    try {
+      await fs.access(FONT_PATH);
+
+      return Promise.all(
+        imageBuffers.map(async (inputBuffer) => {
+          const metadata = await sharp(inputBuffer).metadata();
+          const width = metadata.width;
+          const height = metadata.height;
+
+          // Configuración base de fuente
+          const fontSize = Math.round(width * 0.07); // 7% del ancho
+
+          // Mapa de Posiciones (Coordenadas y Anclas)
+          const posMap = {
+            "arriba-izquierda": { x: "5%", y: "15%", anchor: "start" },
+            "arriba-centro": { x: "50%", y: "15%", anchor: "middle" },
+            "arriba-derecha": { x: "95%", y: "15%", anchor: "end" },
+            centro: { x: "50%", y: "50%", anchor: "middle" },
+            "abajo-izquierda": { x: "5%", y: "90%", anchor: "start" },
+            "abajo-centro": { x: "50%", y: "90%", anchor: "middle" },
+            "abajo-derecha": { x: "95%", y: "90%", anchor: "end" },
+          };
+
+          const configCoords = posMap[position] || posMap["arriba-centro"];
+
+          const svgText = `
+                <svg width="${width}" height="${height}">
+                    <style>
+                        .title { 
+                            fill: white; 
+                            font-family: "CustomFont"; 
+                            font-size: ${fontSize}px; 
+                            font-weight: bold;
+                            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+                        }
+                    </style>
+                    <defs>
+                        <font-face font-family="CustomFont">
+                            <font-face-src>
+                                <font-face-uri xlink:href="${FONT_PATH}"/>
+                            </font-face-src>
+                        </font-face>
+                    </defs>
+                    <text x="${configCoords.x}" y="${configCoords.y}" text-anchor="${configCoords.anchor}" class="title">${text}</text>
+                </svg>
+            `;
+
+          return await sharp(inputBuffer)
+            .composite([{ input: Buffer.from(svgText), blend: "over" }])
+            .png()
+            .toBuffer();
+        }),
+      );
+    } catch (error) {
+      console.error(
+        `[GeminiService] ⚠️ Error estampando texto: ${error.message}`,
+      );
+      return imageBuffers;
+    }
+  }
+
+  /**
+   * Helper privado para descargar/leer referencias.
    */
   async _processReferenceImages(inputs) {
     const parts = [];
@@ -381,103 +631,6 @@ class GeminiService {
       }
     }
     return parts;
-  }
-
-  /**
-   * Realiza Inpainting/Edición con MÁSCARA usando Gemini 2.5 Flash Image.
-   */
-  async editImageWithMask(
-    prompt,
-    imageBase64,
-    maskBase64,
-    referenceImages = [],
-  ) {
-    try {
-      console.log(
-        blue(
-          `[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`,
-        ),
-      );
-      console.log(blue("Prompt objetivo:"), prompt);
-
-      // Prompt específico para instruir al modelo sobre el uso de la máscara y referencias
-      const manualPrompt = `
-      [Instruction]: Edit the first attached image using the provided mask (second image).
-      [Goal]: ${prompt}
-      [Mask Info]: The second image attached is a mask. White areas represent the region to edit. Black areas must be preserved exactly.
-      ${referenceImages.length > 0 ? "[References]: The subsequent images are visual references to guide the style or content of the generated area." : ""}
-      `;
-
-      console.log(yellow("[GeminiService] Manual Prompt Constructed:"));
-      console.log(yellow(manualPrompt));
-
-      const parts = [
-        { text: manualPrompt },
-        {
-          inlineData: {
-            mimeType: "image/png",
-            data: imageBase64,
-          },
-        },
-        {
-          inlineData: {
-            mimeType: "image/png",
-            data: maskBase64,
-          },
-        },
-      ];
-
-      // Add reference images to parts
-      if (referenceImages && referenceImages.length > 0) {
-        referenceImages.forEach((refBase64) => {
-          // Ensure pure base64
-          const cleanRef = refBase64.replace(/^data:image\/\w+;base64,/, "");
-          parts.push({
-            inlineData: {
-              mimeType: "image/png",
-              data: cleanRef,
-            },
-          });
-        });
-      }
-
-      const genConfig = {
-        candidateCount: 1,
-        maxOutputTokens: 2048,
-        temperature: 0.4, // Un poco más bajo para fidelidad
-      };
-
-      const result = await this.imageModel.generateContent({
-        contents: [{ role: "user", parts: parts }],
-        generationConfig: genConfig,
-      });
-
-      const response = await result.response;
-      const candidate = response.candidates[0];
-
-      // Buscar imagen en respuesta
-      const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
-
-      // Buscar texto (posible error o comentario)
-      let textResponse = "";
-      candidate?.content?.parts?.forEach((p) => {
-        if (p.text) textResponse += p.text;
-      });
-
-      if (imagePart) {
-        return {
-          buffer: Buffer.from(imagePart.inlineData.data, "base64"),
-          text: textResponse,
-        };
-      } else {
-        throw new Error(
-          `Gemini no generó imagen. Respuesta texto: ${textResponse}`,
-        );
-      }
-    } catch (error) {
-      console.error(red("[GeminiService] Error en editImageWithMask:"), error);
-      throw error;
-    }
   }
 }
 
