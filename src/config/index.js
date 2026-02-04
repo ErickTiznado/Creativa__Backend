@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 /**
@@ -24,9 +25,50 @@ const config = {
   gcp: {
     projectId: process.env.GOOGLE_PROJECT_ID,
     location: process.env.GOOGLE_LOCATION || "us-central1",
-    keyFilePath: process.env.GOOGLE_APPLICATION_CREDENTIALS
-      ? path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS)
-      : undefined,
+    keyFilePath: (() => {
+      // 1. Priority: Environment variable
+      if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        const envPath = path.resolve(
+          process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        );
+        if (fs.existsSync(envPath) && fs.lstatSync(envPath).isFile()) {
+          return envPath;
+        }
+        console.warn(
+          `[Config] Env var GOOGLE_APPLICATION_CREDENTIALS defined but file not found at: ${envPath}. Attempting auto-discovery...`,
+        );
+      }
+
+      // 2. Fallback: Search in config/key directory
+      try {
+        // Define candidate directories for robustness
+        const candidates = [
+          path.resolve(process.cwd(), "config", "key"),
+          path.join(
+            path.dirname(fileURLToPath(import.meta.url)),
+            "../../config/key",
+          ),
+        ];
+
+        for (const keyDir of candidates) {
+          if (fs.existsSync(keyDir) && fs.lstatSync(keyDir).isDirectory()) {
+            const files = fs.readdirSync(keyDir);
+            const keyFile = files.find((file) => file.endsWith(".json"));
+            if (keyFile) {
+              const fullPath = path.join(keyDir, keyFile);
+              console.log(`[Config] GCP Key found at: ${fullPath}`);
+              return fullPath;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Adv: No se pudo resolver automáticamente la key de GCP desde config/key",
+          error.message,
+        );
+      }
+      return undefined;
+    })(),
     models: {
       geminiPro: "gemini-2.5-pro",
       geminiFlash: "gemini-2.5-flash",

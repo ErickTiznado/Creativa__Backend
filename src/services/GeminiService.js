@@ -9,52 +9,58 @@ import axios from "axios";
 import fs from "fs/promises";
 import path from "path";
 import { blue, red, yellow } from "nicola-framework";
+import config from "../config/index.js";
 
 class GeminiService {
-    constructor() {
-        if (process.env.NODE_ENV === "test") {
-            return;
-        }
-        // Inicializar Vertex AI
-        this.project = process.env.GOOGLE_PROJECT_ID;
-        this.location = process.env.GOOGLE_LOCATION || "us-central1";
-
-        this.vertex_ai = new VertexAI({
-            project: this.project,
-            location: this.location,
-        });
-
-        // Modelos
-        this.textModelName = "gemini-2.5-pro";
-        this.imageModelName = "gemini-2.5-flash-image";
-
-        // Text Model
-        this.textModel = this.vertex_ai.getGenerativeModel({
-            model: this.textModelName,
-            generationConfig: {
-                maxOutputTokens: 2048,
-                temperature: 0.7,
-                topP: 0.9,
-            },
-        });
-
-        // Image Model
-        this.imageModel = this.vertex_ai.getGenerativeModel({
-            model: this.imageModelName,
-            generationConfig: {
-                maxOutputTokens: 2048,
-                temperature: 0.1, // Baja temperatura para seguir prompts de imagen
-                responseModalities: ["IMAGE", "TEXT"],
-            },
-        });
+  constructor() {
+    if (process.env.NODE_ENV === "test") {
+      return;
     }
+    // Inicializar Vertex AI
+    this.project = config.gcp.projectId;
+    this.location = config.gcp.location;
 
-    /**
-     * Mejora un brief de usuario expandiendo detalles visuales.
-     */
-    async enhanceBrief(originalBrief, style) {
-        try {
-            const prompt = `
+    const authOptions = config.gcp.keyFilePath
+      ? { keyFilename: config.gcp.keyFilePath }
+      : {};
+
+    this.vertex_ai = new VertexAI({
+      project: this.project,
+      location: this.location,
+      googleAuthOptions: authOptions,
+    });
+
+    // Modelos
+    this.textModelName = "gemini-2.5-pro";
+    this.imageModelName = "gemini-2.5-flash-image";
+
+    // Text Model
+    this.textModel = this.vertex_ai.getGenerativeModel({
+      model: this.textModelName,
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.7,
+        topP: 0.9,
+      },
+    });
+
+    // Image Model
+    this.imageModel = this.vertex_ai.getGenerativeModel({
+      model: this.imageModelName,
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.1, // Baja temperatura para seguir prompts de imagen
+        responseModalities: ["IMAGE", "TEXT"],
+      },
+    });
+  }
+
+  /**
+   * Mejora un brief de usuario expandiendo detalles visuales.
+   */
+  async enhanceBrief(originalBrief, style) {
+    try {
+      const prompt = `
             Act as an expert Art Director and Prompt Engineer.
             Your task is to ENHANCE the following user brief for an image generation AI.
             
@@ -74,34 +80,34 @@ class GeminiService {
                - Avoid "cyberpunk" or "neon" aesthetics unless the style explicitly requests 'neon-punk'.
             `;
 
-            const request = {
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-            };
+      const request = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      };
 
-            const result = await this.textModel.generateContent(request);
-            const response = result.response;
+      const result = await this.textModel.generateContent(request);
+      const response = result.response;
 
-            if (!response.candidates || response.candidates.length === 0) {
-                console.warn(
-                    "[GeminiService] No candidates returned. Using original brief.",
-                );
-                return originalBrief;
-            }
+      if (!response.candidates || response.candidates.length === 0) {
+        console.warn(
+          "[GeminiService] No candidates returned. Using original brief.",
+        );
+        return originalBrief;
+      }
 
-            const enhancedText = response.candidates[0].content.parts[0].text.trim();
-            return enhancedText;
-        } catch (error) {
-            console.error("[GeminiService] Error enhancing brief:", error);
-            return originalBrief;
-        }
+      const enhancedText = response.candidates[0].content.parts[0].text.trim();
+      return enhancedText;
+    } catch (error) {
+      console.error("[GeminiService] Error enhancing brief:", error);
+      return originalBrief;
     }
+  }
 
-    /**
-     * Traduce y optimiza un prompt en español para modelos de imagen.
-     */
-    async optimizeForImageModel(spanishPrompt) {
-        try {
-            const prompt = `
+  /**
+   * Traduce y optimiza un prompt en español para modelos de imagen.
+   */
+  async optimizeForImageModel(spanishPrompt) {
+    try {
+      const prompt = `
             Act as a STRICT TECHNICAL TRANSLATOR for Image Generation Models.
             Your task is to translate the following Spanish prompt into English tags/keywords.
 
@@ -116,65 +122,69 @@ class GeminiService {
             6. Output ONLY the English text.
             `;
 
-            const request = {
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-            };
-            const result = await this.textModel.generateContent(request);
-            const response = result.response;
+      const request = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      };
+      const result = await this.textModel.generateContent(request);
+      const response = result.response;
 
-            if (!response.candidates || response.candidates.length === 0)
-                return spanishPrompt;
+      if (!response.candidates || response.candidates.length === 0)
+        return spanishPrompt;
 
-            const englishPrompt = response.candidates[0].content.parts[0].text.trim();
-            console.log(
-                `[Silent Translation] ES len: ${spanishPrompt.length} -> EN len: ${englishPrompt.length}`,
-            );
-            return englishPrompt;
-        } catch (error) {
-            console.warn(
-                "[GeminiService] Error translating to English, using original:",
-                error,
-            );
-            return spanishPrompt;
-        }
+      const englishPrompt = response.candidates[0].content.parts[0].text.trim();
+      console.log(
+        `[Silent Translation] ES len: ${spanishPrompt.length} -> EN len: ${englishPrompt.length}`,
+      );
+      return englishPrompt;
+    } catch (error) {
+      console.warn(
+        "[GeminiService] Error translating to English, using original:",
+        error,
+      );
+      return spanishPrompt;
+    }
+  }
+
+  /**
+   * Genera imágenes usando el modelo de imagen.
+   * ACTUALIZADO: Soporta referencias de ESTILO (Manual) y CONTENIDO (Usuario) simultáneamente.
+   * * @param {Object} params
+   * @param {string} params.prompt - Prompt en inglés
+   * @param {string[]} [params.styleReferences] - Imágenes del Manual de Marca (Define CÓMO se ve)
+   * @param {string[]} [params.contentReferences] - Imágenes del Usuario/BD (Define QUÉ se ve/Composición)
+   * @param {string} [params.referenceImages] - (Legacy fallback)
+   * @returns {Promise<Object[]>} Array de buffers de imagen generados
+   */
+  async generateImages({
+    prompt,
+    styleReferences = [],
+    contentReferences = [],
+    // Mantenemos compatibilidad hacia atrás por si acaso se llama con el formato antiguo
+    referenceImages = [],
+    aspectRatio = "1:1",
+    numberOfImages = 1,
+  }) {
+    const parts = [];
+
+    // Normalización: Si el controller antiguo manda 'referenceImages', decidimos qué hacer.
+    // Por ahora, si llegan style/content vacíos pero referenceImages lleno, asumimos que son estilo.
+    let styles = styleReferences;
+    if (
+      styles.length === 0 &&
+      referenceImages.length > 0 &&
+      contentReferences.length === 0
+    ) {
+      styles = referenceImages;
     }
 
-    /**
-     * Genera imágenes usando el modelo de imagen.
-     * ACTUALIZADO: Soporta referencias de ESTILO (Manual) y CONTENIDO (Usuario) simultáneamente.
-     * * @param {Object} params
-     * @param {string} params.prompt - Prompt en inglés
-     * @param {string[]} [params.styleReferences] - Imágenes del Manual de Marca (Define CÓMO se ve)
-     * @param {string[]} [params.contentReferences] - Imágenes del Usuario/BD (Define QUÉ se ve/Composición)
-     * @param {string} [params.referenceImages] - (Legacy fallback)
-     * @returns {Promise<Object[]>} Array de buffers de imagen generados
-     */
-    async generateImages({
-        prompt,
-        styleReferences = [],
-        contentReferences = [],
-        // Mantenemos compatibilidad hacia atrás por si acaso se llama con el formato antiguo
-        referenceImages = [],
-        aspectRatio = "1:1",
-        numberOfImages = 1,
-    }) {
-        const parts = [];
+    // --- 1. INYECCIÓN DE ESTILO (Manual de Marca) ---
+    if (styles && styles.length > 0) {
+      console.log(
+        `[GeminiService] Inyectando ${styles.length} referencias de ESTILO.`,
+      );
 
-        // Normalización: Si el controller antiguo manda 'referenceImages', decidimos qué hacer.
-        // Por ahora, si llegan style/content vacíos pero referenceImages lleno, asumimos que son estilo.
-        let styles = styleReferences;
-        if (styles.length === 0 && referenceImages.length > 0 && contentReferences.length === 0) {
-            styles = referenceImages;
-        }
-
-        // --- 1. INYECCIÓN DE ESTILO (Manual de Marca) ---
-        if (styles && styles.length > 0) {
-            console.log(
-                `[GeminiService] Inyectando ${styles.length} referencias de ESTILO.`,
-            );
-
-            parts.push({
-                text: `
+      parts.push({
+        text: `
           [SYSTEM INSTRUCTION: VISUAL STYLE DEFINITION]
           The following images define the MANDATORY VISUAL STYLE (Brand Identity).
           
@@ -185,25 +195,25 @@ class GeminiService {
           
           [STYLE REFERENCES]:
         `,
-            });
+      });
 
-            // Procesar e inyectar las imágenes de estilo
-            const styleParts = await this._processReferenceImages(styles);
-            parts.push(...styleParts);
+      // Procesar e inyectar las imágenes de estilo
+      const styleParts = await this._processReferenceImages(styles);
+      parts.push(...styleParts);
 
-            parts.push({
-                text: `[END OF STYLE DEFINITION]`,
-            });
-        }
+      parts.push({
+        text: `[END OF STYLE DEFINITION]`,
+      });
+    }
 
-        // --- 2. INYECCIÓN DE CONTENIDO (Referencias del Usuario / Estructura) ---
-        if (contentReferences && contentReferences.length > 0) {
-            console.log(
-                `[GeminiService] Inyectando ${contentReferences.length} referencias de CONTENIDO/ESTRUCTURA.`,
-            );
+    // --- 2. INYECCIÓN DE CONTENIDO (Referencias del Usuario / Estructura) ---
+    if (contentReferences && contentReferences.length > 0) {
+      console.log(
+        `[GeminiService] Inyectando ${contentReferences.length} referencias de CONTENIDO/ESTRUCTURA.`,
+      );
 
-            parts.push({
-                text: `
+      parts.push({
+        text: `
             [SYSTEM INSTRUCTION: STRUCTURAL GUIDANCE]
             The following images are provided as COMPOSITION GUIDES.
             
@@ -215,255 +225,260 @@ class GeminiService {
             
             [CONTENT/STRUCTURE REFERENCES]:
           `,
-            });
+      });
 
-            // Procesar e inyectar las imágenes de contenido
-            const contentParts = await this._processReferenceImages(contentReferences);
-            parts.push(...contentParts);
+      // Procesar e inyectar las imágenes de contenido
+      const contentParts =
+        await this._processReferenceImages(contentReferences);
+      parts.push(...contentParts);
 
-            parts.push({
-                text: `[END OF STRUCTURAL GUIDANCE]`,
-            });
-        }
-
-        // --- 3. EL PROMPT DEL USUARIO ---
-        let finalPromptText = `[GENERATION PROMPT]: ${prompt}`;
-
-        // Agregar instrucción de Aspect Ratio
-        if (aspectRatio && aspectRatio !== "1:1") {
-            finalPromptText += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
-        }
-
-        parts.push({ text: finalPromptText });
-
-        // --- 4. CONFIGURACIÓN ---
-        // Subimos ligeramente la temperatura (0.45) para permitir la fusión creativa de Estilo + Estructura
-        const genConfig = {
-            candidateCount: 1,
-            maxOutputTokens: 2048,
-            temperature: 0.45,
-        };
-
-        // --- 5. EJECUCIÓN ---
-        try {
-            const result = await this.imageModel.generateContent({
-                contents: [{ role: "user", parts: parts }],
-                generationConfig: genConfig,
-            });
-
-            const response = await result.response;
-            const candidates = response.candidates || [];
-            const generatedImages = [];
-
-            for (const candidate of candidates) {
-                const cParts = candidate.content.parts || [];
-                const imagePart = cParts.find((p) => p.inlineData);
-                if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
-                    generatedImages.push(Buffer.from(imagePart.inlineData.data, "base64"));
-                }
-            }
-
-            if (generatedImages.length === 0) {
-                let textResponse = "";
-                candidates[0]?.content?.parts?.forEach((p) => {
-                    if (p.text) textResponse += p.text;
-                });
-                throw new Error(
-                    `Gemini respondió solo texto: ${textResponse.substring(0, 150)}...`,
-                );
-            }
-
-            return generatedImages;
-        } catch (error) {
-            console.error("[GeminiService] Error fatal en generateImages:", error);
-            throw error;
-        }
+      parts.push({
+        text: `[END OF STRUCTURAL GUIDANCE]`,
+      });
     }
 
-    /**
-     * Refina/Fusiona imágenes existentes basado en un prompt.
-     */
-    async refineImage(prompt, imageParts, referenceImages = []) {
-        if (!imageParts || imageParts.length === 0) {
-            throw new Error("Se requieren imágenes para refinar.");
+    // --- 3. EL PROMPT DEL USUARIO ---
+    let finalPromptText = `[GENERATION PROMPT]: ${prompt}`;
+
+    // Agregar instrucción de Aspect Ratio
+    if (aspectRatio && aspectRatio !== "1:1") {
+      finalPromptText += `\n\n[Technical Specification]: Please generate the image with an Aspect Ratio of ${aspectRatio}.`;
+    }
+
+    parts.push({ text: finalPromptText });
+
+    // --- 4. CONFIGURACIÓN ---
+    // Subimos ligeramente la temperatura (0.45) para permitir la fusión creativa de Estilo + Estructura
+    const genConfig = {
+      candidateCount: 1,
+      maxOutputTokens: 2048,
+      temperature: 0.45,
+    };
+
+    // --- 5. EJECUCIÓN ---
+    try {
+      const result = await this.imageModel.generateContent({
+        contents: [{ role: "user", parts: parts }],
+        generationConfig: genConfig,
+      });
+
+      const response = await result.response;
+      const candidates = response.candidates || [];
+      const generatedImages = [];
+
+      for (const candidate of candidates) {
+        const cParts = candidate.content.parts || [];
+        const imagePart = cParts.find((p) => p.inlineData);
+        if (imagePart && imagePart.inlineData && imagePart.inlineData.data) {
+          generatedImages.push(
+            Buffer.from(imagePart.inlineData.data, "base64"),
+          );
         }
+      }
 
-        const parts = [{ text: prompt }];
-
-        // 1. Añadir imágenes a editar (Subject)
-        parts.push(...imageParts);
-
-        // 2. Añadir referencias obligatorias (Style/Logo)
-        if (referenceImages && referenceImages.length > 0) {
-            console.log(
-                `[GeminiService] Añadiendo ${referenceImages.length} referencias al refinamiento...`,
-            );
-            const refParts = await this._processReferenceImages(referenceImages);
-            parts.push(...refParts);
-        }
-
-        const reqContent = {
-            contents: [{ role: "user", parts }],
-        };
-
-        console.log(
-            `[GeminiService] Refinando/Fusionando con ${imageParts.length} assets y ${referenceImages.length} referencias...`,
-        );
-
-        const result = await this.imageModel.generateContent(reqContent);
-        const response = await result.response;
-        const candidate = response.candidates[0];
-
-        // Buscar imagen en respuesta
-        const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
-
-        // Buscar texto (comentarios)
+      if (generatedImages.length === 0) {
         let textResponse = "";
-        candidate?.content?.parts?.forEach((p) => {
-            if (p.text) textResponse += p.text;
+        candidates[0]?.content?.parts?.forEach((p) => {
+          if (p.text) textResponse += p.text;
         });
+        throw new Error(
+          `Gemini respondió solo texto: ${textResponse.substring(0, 150)}...`,
+        );
+      }
 
-        if (imagePart) {
-            return {
-                buffer: Buffer.from(imagePart.inlineData.data, "base64"),
-                text: textResponse,
-            };
+      return generatedImages;
+    } catch (error) {
+      console.error("[GeminiService] Error fatal en generateImages:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refina/Fusiona imágenes existentes basado en un prompt.
+   */
+  async refineImage(prompt, imageParts, referenceImages = []) {
+    if (!imageParts || imageParts.length === 0) {
+      throw new Error("Se requieren imágenes para refinar.");
+    }
+
+    const parts = [{ text: prompt }];
+
+    // 1. Añadir imágenes a editar (Subject)
+    parts.push(...imageParts);
+
+    // 2. Añadir referencias obligatorias (Style/Logo)
+    if (referenceImages && referenceImages.length > 0) {
+      console.log(
+        `[GeminiService] Añadiendo ${referenceImages.length} referencias al refinamiento...`,
+      );
+      const refParts = await this._processReferenceImages(referenceImages);
+      parts.push(...refParts);
+    }
+
+    const reqContent = {
+      contents: [{ role: "user", parts }],
+    };
+
+    console.log(
+      `[GeminiService] Refinando/Fusionando con ${imageParts.length} assets y ${referenceImages.length} referencias...`,
+    );
+
+    const result = await this.imageModel.generateContent(reqContent);
+    const response = await result.response;
+    const candidate = response.candidates[0];
+
+    // Buscar imagen en respuesta
+    const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
+
+    // Buscar texto (comentarios)
+    let textResponse = "";
+    candidate?.content?.parts?.forEach((p) => {
+      if (p.text) textResponse += p.text;
+    });
+
+    if (imagePart) {
+      return {
+        buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+        text: textResponse,
+      };
+    } else {
+      return { buffer: null, text: textResponse };
+    }
+  }
+
+  /**
+   * Helper privado para descargar imágenes de referencia (URL) o leer locales.
+   */
+  async _processReferenceImages(inputs) {
+    const parts = [];
+    for (const input of inputs) {
+      try {
+        let base64Image;
+        let mimeType;
+
+        if (input.startsWith("http://") || input.startsWith("https://")) {
+          // Es URL
+          const responseImg = await axios.get(input, {
+            responseType: "arraybuffer",
+          });
+          base64Image = Buffer.from(responseImg.data).toString("base64");
+          mimeType = input.endsWith("png") ? "image/png" : "image/jpeg";
         } else {
-            return { buffer: null, text: textResponse };
+          // Es Archivo Local
+          const fileBuffer = await fs.readFile(input);
+          base64Image = fileBuffer.toString("base64");
+          const ext = path.extname(input).toLowerCase();
+          mimeType = ext === ".png" ? "image/png" : "image/jpeg";
         }
+
+        parts.push({
+          inlineData: { mimeType, data: base64Image },
+        });
+      } catch (e) {
+        console.warn(
+          `[GeminiService] Error procesando referencia ${input}: ${e.message}`,
+        );
+      }
     }
+    return parts;
+  }
 
-    /**
-     * Helper privado para descargar imágenes de referencia (URL) o leer locales.
-     */
-    async _processReferenceImages(inputs) {
-        const parts = [];
-        for (const input of inputs) {
-            try {
-                let base64Image;
-                let mimeType;
+  /**
+   * Realiza Inpainting/Edición con MÁSCARA usando Gemini 2.5 Flash Image.
+   */
+  async editImageWithMask(
+    prompt,
+    imageBase64,
+    maskBase64,
+    referenceImages = [],
+  ) {
+    try {
+      console.log(
+        blue(
+          `[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`,
+        ),
+      );
+      console.log(blue("Prompt objetivo:"), prompt);
 
-                if (input.startsWith("http://") || input.startsWith("https://")) {
-                    // Es URL
-                    const responseImg = await axios.get(input, {
-                        responseType: "arraybuffer",
-                    });
-                    base64Image = Buffer.from(responseImg.data).toString("base64");
-                    mimeType = input.endsWith("png") ? "image/png" : "image/jpeg";
-                } else {
-                    // Es Archivo Local
-                    const fileBuffer = await fs.readFile(input);
-                    base64Image = fileBuffer.toString("base64");
-                    const ext = path.extname(input).toLowerCase();
-                    mimeType = ext === ".png" ? "image/png" : "image/jpeg";
-                }
-
-                parts.push({
-                    inlineData: { mimeType, data: base64Image },
-                });
-            } catch (e) {
-                console.warn(
-                    `[GeminiService] Error procesando referencia ${input}: ${e.message}`,
-                );
-            }
-        }
-        return parts;
-    }
-
-    /**
-     * Realiza Inpainting/Edición con MÁSCARA usando Gemini 2.5 Flash Image.
-     */
-    async editImageWithMask(
-        prompt,
-        imageBase64,
-        maskBase64,
-        referenceImages = [],
-    ) {
-        try {
-            console.log(
-                blue(`[GeminiService] editImageWithMask Check. Prompt length: ${prompt.length}, Mask present: ${!!maskBase64}, Refs count: ${referenceImages?.length}`),
-            );
-            console.log(blue("Prompt objetivo:"), prompt);
-
-            // Prompt específico para instruir al modelo sobre el uso de la máscara y referencias
-            const manualPrompt = `
+      // Prompt específico para instruir al modelo sobre el uso de la máscara y referencias
+      const manualPrompt = `
       [Instruction]: Edit the first attached image using the provided mask (second image).
       [Goal]: ${prompt}
       [Mask Info]: The second image attached is a mask. White areas represent the region to edit. Black areas must be preserved exactly.
       ${referenceImages.length > 0 ? "[References]: The subsequent images are visual references to guide the style or content of the generated area." : ""}
       `;
 
-            console.log(yellow("[GeminiService] Manual Prompt Constructed:"));
-            console.log(yellow(manualPrompt));
+      console.log(yellow("[GeminiService] Manual Prompt Constructed:"));
+      console.log(yellow(manualPrompt));
 
-            const parts = [
-                { text: manualPrompt },
-                {
-                    inlineData: {
-                        mimeType: "image/png",
-                        data: imageBase64,
-                    },
-                },
-                {
-                    inlineData: {
-                        mimeType: "image/png",
-                        data: maskBase64,
-                    },
-                },
-            ];
+      const parts = [
+        { text: manualPrompt },
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: imageBase64,
+          },
+        },
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: maskBase64,
+          },
+        },
+      ];
 
-            // Add reference images to parts
-            if (referenceImages && referenceImages.length > 0) {
-                referenceImages.forEach((refBase64) => {
-                    // Ensure pure base64
-                    const cleanRef = refBase64.replace(/^data:image\/\w+;base64,/, "");
-                    parts.push({
-                        inlineData: {
-                            mimeType: "image/png",
-                            data: cleanRef,
-                        },
-                    });
-                });
-            }
+      // Add reference images to parts
+      if (referenceImages && referenceImages.length > 0) {
+        referenceImages.forEach((refBase64) => {
+          // Ensure pure base64
+          const cleanRef = refBase64.replace(/^data:image\/\w+;base64,/, "");
+          parts.push({
+            inlineData: {
+              mimeType: "image/png",
+              data: cleanRef,
+            },
+          });
+        });
+      }
 
-            const genConfig = {
-                candidateCount: 1,
-                maxOutputTokens: 2048,
-                temperature: 0.4, // Un poco más bajo para fidelidad
-            };
+      const genConfig = {
+        candidateCount: 1,
+        maxOutputTokens: 2048,
+        temperature: 0.4, // Un poco más bajo para fidelidad
+      };
 
-            const result = await this.imageModel.generateContent({
-                contents: [{ role: "user", parts: parts }],
-                generationConfig: genConfig,
-            });
+      const result = await this.imageModel.generateContent({
+        contents: [{ role: "user", parts: parts }],
+        generationConfig: genConfig,
+      });
 
-            const response = await result.response;
-            const candidate = response.candidates[0];
+      const response = await result.response;
+      const candidate = response.candidates[0];
 
-            // Buscar imagen en respuesta
-            const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
+      // Buscar imagen en respuesta
+      const imagePart = candidate?.content?.parts?.find((p) => p.inlineData);
 
-            // Buscar texto (posible error o comentario)
-            let textResponse = "";
-            candidate?.content?.parts?.forEach((p) => {
-                if (p.text) textResponse += p.text;
-            });
+      // Buscar texto (posible error o comentario)
+      let textResponse = "";
+      candidate?.content?.parts?.forEach((p) => {
+        if (p.text) textResponse += p.text;
+      });
 
-            if (imagePart) {
-                return {
-                    buffer: Buffer.from(imagePart.inlineData.data, "base64"),
-                    text: textResponse,
-                };
-            } else {
-                throw new Error(
-                    `Gemini no generó imagen. Respuesta texto: ${textResponse}`,
-                );
-            }
-        } catch (error) {
-            console.error(red("[GeminiService] Error en editImageWithMask:"), error);
-            throw error;
-        }
+      if (imagePart) {
+        return {
+          buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+          text: textResponse,
+        };
+      } else {
+        throw new Error(
+          `Gemini no generó imagen. Respuesta texto: ${textResponse}`,
+        );
+      }
+    } catch (error) {
+      console.error(red("[GeminiService] Error en editImageWithMask:"), error);
+      throw error;
     }
+  }
 }
 
 export default new GeminiService();
