@@ -70,4 +70,6 @@ RemoteRoute.post(
   brief_DB.Registrar_Brief,
 );
 
+RemoteRoute.get("/chat/:id", getChatSessionById);
+
 export default RemoteRoute;

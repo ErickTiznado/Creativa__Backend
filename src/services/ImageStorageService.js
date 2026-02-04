@@ -1,30 +1,24 @@
 import { Storage } from "@google-cloud/storage";
 import { v4 as uuidv4 } from "uuid";
 import sharp from "sharp";
-import path from "path";
 import axios from "axios";
-import { fileURLToPath } from "url";
 import CampaignAsset from "../model/CampaignAsset.model.js";
 import CampaignAssetVector from "../model/CampaignAssetVector.model.js";
 import VectorCore from "./VectorCore.js";
 import { PatternBuilder } from "nicola-framework";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const KEY_PATH = path.join(__dirname, "../config/key/creativa-key.json");
+import config from "../config/index.js";
+
 const save_location = {
   temp: "temp",
   approved: "approved",
 };
-const PROJECT_ID =
-  process.env.GCP_PROJECT_ID ||
-  process.env.GOOGLE_PROJECT_ID ||
-  "ugb-creativamkt-484123";
-const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "creativa-campaign-assets";
+
+const BUCKET_NAME = config.gcp.storage.bucketName;
 
 // Inicializar Storage
 const storage = new Storage({
-  projectId: PROJECT_ID,
-  keyFilename: KEY_PATH,
+  projectId: config.gcp.projectId,
+  keyFilename: config.gcp.keyFilePath,
 });
 const bucket = storage.bucket(BUCKET_NAME);
 
