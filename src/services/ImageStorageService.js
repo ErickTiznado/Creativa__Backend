@@ -1,4 +1,6 @@
 import { Storage } from "@google-cloud/storage";
+import { fileURLToPath } from "url";
+import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import sharp from "sharp";
 import axios from "axios";
@@ -6,14 +8,11 @@ import CampaignAsset from "../model/CampaignAsset.model.js";
 import CampaignAssetVector from "../model/CampaignAssetVector.model.js";
 import VectorCore from "./VectorCore.js";
 import { PatternBuilder } from "nicola-framework";
-<<<<<<< HEAD
 import config from "../config/index.js";
 
-=======
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const KEY_PATH = path.join(__dirname, "../../config/key/creativa-key.json");
->>>>>>> 524b9f015e36e041e68ce038923d1dbef5fefc07
 const save_location = {
   temp: "temp",
   approved: "approved",

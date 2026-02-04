@@ -18,6 +18,7 @@ import { brief_DB } from "../controllers/brief-db.controller.js";
 // TAREA 3: Importación de Middlewares de Seguridad
 import { requireAuth } from "../middlewares/AuthMiddleware.js";
 import { requireRole } from "../middlewares/roleMiddleware.js";
+import { getChatSessionById } from "../controllers/chat.controller.js";
 
 // Instancia del enrutador de Nicola Framework
 const RemoteRoute = new Remote();
