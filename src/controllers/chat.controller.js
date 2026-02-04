@@ -16,3 +16,13 @@ const updateChatSession = async (req, res) => {
   });
   res.json(chatSession);
 };
+
+export const getChatSessionByCampaignId = async (req, res) => {
+  const { campaignId } = req.query;
+  try {
+    const chatSession = await ChatSession.where("campings_id", campaignId).get();
+    res.json(chatSession);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching chat session", error: error.message });
+  }
+};
