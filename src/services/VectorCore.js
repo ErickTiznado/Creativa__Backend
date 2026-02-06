@@ -67,7 +67,9 @@ class VectorCore {
     const embeddingsProto = predictions[0].structValue.fields.embeddings;
     const valuesProto = embeddingsProto.structValue.fields.values;
     // Convertir a array de números
-    const embeddings = valuesProto.listValue.values.map((v) => v.numberValue);
+    const embeddings = valuesProto.listValue.values.map((v) =>
+      Number(v.numberValue),
+    );
 
     return embeddings;
   }
@@ -109,7 +111,7 @@ class VectorCore {
       // Extraer embeddings del formato protobuf
       const embeddingProto = predictions[0].structValue.fields.imageEmbedding;
       const valuesProto = embeddingProto.listValue.values;
-      const embeddings = valuesProto.map((v) => v.numberValue);
+      const embeddings = valuesProto.map((v) => Number(v.numberValue));
 
       return embeddings;
     } catch (error) {
@@ -149,7 +151,7 @@ class VectorCore {
       // Extraer embeddings del formato protobuf
       const embeddingProto = predictions[0].structValue.fields.textEmbedding;
       const valuesProto = embeddingProto.listValue.values;
-      const embeddings = valuesProto.map((v) => v.numberValue);
+      const embeddings = valuesProto.map((v) => Number(v.numberValue));
 
       return embeddings;
     } catch (error) {

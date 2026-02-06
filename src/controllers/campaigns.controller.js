@@ -35,7 +35,9 @@ export const getCampaignsDesigners = async (req, res) => {
   }
   console.log(designerId);
   try {
-    const response = await Brief.select().where("designer_id", designerId).get();
+    const response = await Brief.select()
+      .where("designer_id", designerId)
+      .get();
     console.log(response);
     res.json({
       message: "Campañas obtenidas con éxito",
@@ -52,12 +54,17 @@ export const getCampaignsDesigners = async (req, res) => {
   }
 };
 
-
+import CampaignService from "../services/CampaignService.js";
 
 export const updateStateCampaign = async (req, res) => {
   const { campaignId, status } = req.body;
 
-  if ((campaignId.length === 0 || status.length === 0) || campaignId === undefined || status === undefined) {
+  if (
+    campaignId.length === 0 ||
+    status.length === 0 ||
+    campaignId === undefined ||
+    status === undefined
+  ) {
     res.statusCode = 400;
     return res.json({
       message: "No se proporciono un id de campaña o estado",
@@ -67,15 +74,28 @@ export const updateStateCampaign = async (req, res) => {
 
   try {
     const response = await Brief.where("id", campaignId).update({
-      status: status
+      status: status,
     });
+
+    // [NUEVO] Si la campaña se marca como finalizada (o cualquier estado relevante, asumimos que al guardar cambios importantes), vectorizamos.
+    // Como updateStateCampaign a veces solo cambia estado, tal vez deberíamos vectorizar, pero para asegurar la info más reciente...
+    // Obtenemos los datos actuales de la campaña (incluyendo brief_data)
+    const currentCampaign = await Brief.find(campaignId);
+    if (currentCampaign) {
+      // Ejecutamos asíncronamente para no bloquear la respuesta
+      CampaignService.vectorizeCampaign(
+        campaignId,
+        currentCampaign.brief_data,
+      ).catch((err) => {
+        console.error("Error background vectorization:", err);
+      });
+    }
 
     res.statusCode = 200;
     res.json({
       message: "Status actualizado con exito",
       success: true,
     });
-
   } catch (error) {
     res.statusCode = 500;
     res.json({
@@ -84,8 +104,7 @@ export const updateStateCampaign = async (req, res) => {
       success: false,
     });
   }
-}
-
+};
 
 export const getCampaingById = async (req, res) => {
   const { campaignId, designerId } = req.query;
@@ -99,11 +118,16 @@ export const getCampaingById = async (req, res) => {
   }
 
   try {
-
-    const response = await Brief.select().where("id", campaignId).where("designer_id", designerId).get();
+    const response = await Brief.select()
+      .where("id", campaignId)
+      .where("designer_id", designerId)
+      .get();
 
     if (response.length > 0) {
-      const assets = await CampaignAsset.where("campaign_assets", campaignId).get();
+      const assets = await CampaignAsset.where(
+        "campaign_assets",
+        campaignId,
+      ).get();
       response[0].assets = assets.map((asset) => ({
         id: asset.id,
         img_url: asset.img_url,
@@ -112,7 +136,7 @@ export const getCampaingById = async (req, res) => {
         status: asset.status,
         created_at: asset.created_at,
         parent_asset_id: asset.parent_asset_id,
-        is_refinement: asset.parent_asset_id ? true : false
+        is_refinement: asset.parent_asset_id ? true : false,
       }));
     }
 
@@ -120,14 +144,14 @@ export const getCampaingById = async (req, res) => {
     res.json({
       message: "Ok",
       data: response,
-      success: true
-    })
+      success: true,
+    });
   } catch (e) {
     res.statusCode = 500;
     res.json({
       message: "Error al obtener la campaña",
       error: e.message,
       success: false,
-    })
+    });
   }
-}
+};
