@@ -50,7 +50,7 @@ export const updateAsset = async (req, res) => {
       return res.json({ message: "is_saved es requerido", success: false });
     }
 
-    // Update the asset
+    // Solo actualiza el campo is_saved, sin ejecutar flujo de aprobación
     const updated = await Assets.where("id", id).update({ is_saved });
 
     if (!updated || updated.length === 0) {

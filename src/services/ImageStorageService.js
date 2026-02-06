@@ -9,6 +9,13 @@ import CampaignAssetVector from "../model/CampaignAssetVector.model.js";
 import VectorCore from "./VectorCore.js";
 import { PatternBuilder } from "nicola-framework";
 import config from "../config/index.js";
+import { createClient } from "@supabase/supabase-js";
+
+// Direct Supabase client for vector insertion (bypasses ORM serialization issues)
+const supabaseKey = config.supabase.serviceKey || config.supabase.anonKey;
+const supabase = createClient(config.supabase.url, supabaseKey, {
+  db: { schema: "devschema" },
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,12 +178,17 @@ class ImageStorageService {
         const embedding = await VectorCore.embedImage(buffer);
 
         if (embedding) {
-          await CampaignAssetVector.create({
-            asset_id: assetId,
-            embedding: embedding,
-            prompt_used: asset.prompt_used || "",
-            created_at: new Date().toISOString(),
-          });
+          const { error } = await supabase
+            .from("campaign_asset_vectors")
+            .insert({
+              asset_id: assetId,
+              embedding: embedding, // Supabase client handles vector serialization
+              prompt_used: asset.prompt_used || "",
+            });
+
+          if (error) {
+            throw new Error(`Supabase insert error: ${error.message}`);
+          }
           console.log(
             `[ImageStorage] Embedding guardado para asset ${assetId}`,
           );

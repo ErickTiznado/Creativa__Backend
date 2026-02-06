@@ -27,37 +27,36 @@ const vertexInstance = new VertexAI({
  * Define el comportamiento y reglas que debe seguir el asistente.
  */
 const systemInstruction = `
-Eres un asistente de recolección de datos para campañas publicitarias. Tu objetivo es extraer datos de la conversación de manera conversacional y amigable.
+Eres un Estratega Creativo y Experto en Marketing Digital. Tu misión principal es ayudar al usuario a construir el brief perfecto para su campaña publicitaria.
 
-REGLAS CRÍTICAS - DEBES SEGUIRLAS SIEMPRE:
-1. OBLIGATORIO: SIEMPRE ejecuta la función 'Campaing_Brief' después de CADA mensaje del usuario. Esto es MANDATORIO, sin excepciones.
-2. IMPORTANTE: Cuando ejecutes 'Campaing_Brief', DEBES incluir TODOS los datos conocidos:
-   - Los datos del [CONTEXTO] que ya fueron recolectados anteriormente
-   - MÁS los datos nuevos que el usuario proporcionó en este mensaje
-   - NUNCA envíes solo los datos nuevos, siempre envía el conjunto COMPLETO de todos los datos conocidos
-3. Si el usuario no ha proporcionado explícitamente un dato, deja el campo vacío (""). NUNCA inventes información.
-4. Después de ejecutar 'Campaing_Brief', pregunta por UN campo faltante de manera natural y conversacional.
-5. La fecha debe estar en formato YYYY-MM-DD. Si el usuario da otro formato, conviértela o solicita el formato correcto.
-6. Hoy es ${new Date().toISOString().split("T")[0]}. Usa esta fecha para calcular fechas futuras como "mañana", "la próxima semana", etc.
-7. Siempre responde en español de manera amigable.
-8. Cuando tengas TODOS los datos completos, ejecuta 'Campaing_Brief' con datos_completos: true.
-9. Prioriza preguntar por los campos en este orden: nombre_campaing, ContentType, publishing_channel, Description, Objective, fechaPublicacion, observations.
+TU ROL:
+- No eres un simple formulario. Eres un consultor creativo.
+- Si el usuario te pide ayuda, ideas o mejoras (ej: "mejora este título", "dame ideas para el objetivo"), DEBES usar tu creatividad para proponer opciones de alto impacto.
+- Si el usuario te da una idea vaga, puedes sugerir formas de potenciarla.
 
-CAMPOS A RECOLECTAR (todos son necesarios):
-- nombre_campaing: Nombre de la campaña
-- ContentType: Tipo de publicación (Post, Reel, Story, etc.)
-- Description: Descripción breve de la campaña
-- Objective: Objetivo central de la campaña
-- observations: Observaciones adicionales o requerimientos
-- publishing_channel: Canal de publicación (Instagram, Facebook, TikTok, etc.)
-- fechaPublicacion: Fecha de publicación en formato YYYY-MM-DD
+REGLAS CRÍTICAS DE OPERACIÓN:
+1. RECOLECCIÓN SILENCIOSA (MANDATORIO): Independientemente de lo que converses, SIEMPRE ejecuta la función 'Campaing_Brief' al final de cada turno con los datos que tengas confirmados hasta el momento.
+2. INTEGRIDAD DE DATOS:
+   - Al ejecutar 'Campaing_Brief', envía SIEMPRE el acumulado de [CONTEXTO] + nuevos datos.
+   - Si estás proponiendo una mejora (ej: 3 opciones de títulos), NO la guardes en la base de datos hasta que el usuario elija o confirme una.
+3. FOCO: Aunque seas creativo, tu meta final es completar los campos del brief.
+4. PROACTIVIDAD CONTROLADA:
+   - Si el usuario sabe lo que quiere -> Toma nota y confirma.
+   - Si el usuario duda o pide ayuda -> Activa tu modo creativo y propón soluciones.
 
-FLUJO DE CONVERSACIÓN:
-1. Usuario envía mensaje con [CONTEXTO] de datos anteriores
-2. Combinar datos del CONTEXTO + datos nuevos del mensaje
-3. Ejecutar 'Campaing_Brief' con TODOS los datos combinados
-4. Responder confirmando lo recibido y preguntando por el siguiente dato faltante
-5. Repetir hasta tener todos los campos completos
+CAMPOS A COMPLETAR (Brief):
+- nombre_campaing: Nombre atractivo de la campaña.
+- ContentType: Formato (Post, Reel, Story, etc).
+- Description: De qué trata visual y conceptualmente.
+- Objective: Qué se quiere lograr (Ventas, Leads, Branding).
+- observations: Detalles técnicos o de marca.
+- publishing_channel: Dónde se publicará.
+- fechaPublicacion: Cuándo sale (YYYY-MM-DD). Usa hoy (${new Date().toISOString().split("T")[0]}) como referencia.
+
+DINÁMICA DE CONVERSACIÓN:
+- Sé empático, profesional y entusiasta.
+- Si faltan datos, pídelos de uno en uno, o de dos en dos si están relacionados.
+- Cuando tengas TODOS los datos obligatorios confirmados por el usuario, marca datos_completos: true.
 `;
 
 /**
@@ -69,41 +68,50 @@ const tools = [
     functionDeclarations: [
       {
         name: "Campaing_Brief",
-        description: "Ejecuta esta función cuando el usuario proporcione información nueva sobre la campaña o cuando todos los datos estén completos. Guarda los datos de la campaña publicitaria.",
+        description:
+          "Ejecuta esta función cuando el usuario proporcione información nueva sobre la campaña o cuando todos los datos estén completos. Guarda los datos de la campaña publicitaria.",
         parameters: {
           type: "object",
           properties: {
             nombre_campaing: {
               type: "string",
-              description: "Nombre de la campaña publicitaria. Dejar vacío si no se conoce.",
+              description:
+                "Nombre de la campaña publicitaria. Dejar vacío si no se conoce.",
             },
             ContentType: {
               type: "string",
-              description: "Tipo de publicación: Post, Reel, Story, Video, etc. Dejar vacío si no se conoce.",
+              description:
+                "Tipo de publicación: Post, Reel, Story, Video, etc. Dejar vacío si no se conoce.",
             },
             Description: {
               type: "string",
-              description: "Descripción breve de lo que trata la campaña. Dejar vacío si no se conoce.",
+              description:
+                "Descripción breve de lo que trata la campaña. Dejar vacío si no se conoce.",
             },
             Objective: {
               type: "string",
-              description: "Objetivo central de la campaña (ej: generar ventas, reclutar, aumentar awareness). Dejar vacío si no se conoce.",
+              description:
+                "Objetivo central de la campaña (ej: generar ventas, reclutar, aumentar awareness). Dejar vacío si no se conoce.",
             },
             observations: {
               type: "string",
-              description: "Observaciones adicionales, requerimientos especiales o detalles importantes. Dejar vacío si no se conoce.",
+              description:
+                "Observaciones adicionales, requerimientos especiales o detalles importantes. Dejar vacío si no se conoce.",
             },
             publishing_channel: {
               type: "string",
-              description: "Canal de publicación donde se compartirá (Instagram, Facebook, TikTok, LinkedIn, etc.). Dejar vacío si no se conoce.",
+              description:
+                "Canal de publicación donde se compartirá (Instagram, Facebook, TikTok, LinkedIn, etc.). Dejar vacío si no se conoce.",
             },
             fechaPublicacion: {
               type: "string",
-              description: "Fecha de publicación en formato YYYY-MM-DD. Dejar vacío si no se conoce.",
+              description:
+                "Fecha de publicación en formato YYYY-MM-DD. Dejar vacío si no se conoce.",
             },
             datos_completos: {
               type: "boolean",
-              description: "true si el usuario ha proporcionado todos los datos necesarios, false si aún faltan datos.",
+              description:
+                "true si el usuario ha proporcionado todos los datos necesarios, false si aún faltan datos.",
             },
           },
           required: ["datos_completos"],
@@ -130,8 +138,8 @@ const generationConfig = {
 const toolConfigForced = {
   functionCallingConfig: {
     mode: "ANY",
-    allowedFunctionNames: ["Campaing_Brief"]
-  }
+    allowedFunctionNames: ["Campaing_Brief"],
+  },
 };
 
 /**
@@ -140,8 +148,8 @@ const toolConfigForced = {
  */
 const toolConfigText = {
   functionCallingConfig: {
-    mode: "NONE"
-  }
+    mode: "NONE",
+  },
 };
 
 /**
