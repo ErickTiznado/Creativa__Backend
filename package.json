@@ -1,7 +1,7 @@
 {
   "name": "creativa__backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend migracion arquitectura hexagonal",
   "homepage": "https://github.com/ErickTiznado/Creativa__Backend#readme",
   "bugs": {
     "url": "https://github.com/ErickTiznado/Creativa__Backend/issues"
@@ -13,9 +13,10 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "app.js",
+  "main": "src/infrastructure/web/server.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "node src/infrastructure/web/server.js",
+    "dev": "node --watch src/infrastructure/web/server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
@@ -25,8 +26,11 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@supabase/supabase-js": "^2.90.1",
     "axios": "^1.13.3",
-    "dotenv": "^17.2.3",
-    "nicola-framework": "github:ErickTiznado/nicola",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "helmet": "^7.2.0",
+    "morgan": "^1.10.1",
     "pdf-parse": "^2.4.5",
     "pg": "^8.17.1",
     "sharp": "^0.34.5",
