@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth.routes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -25,9 +26,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// TODO: Importar rutas aquí (Dev 1, 2, 3, 4)
-// import authRoutes from './routes/auth.routes.js';
-// app.use('/auth', authRoutes);
+app.use('/auth', authRoutes);
 
 // Manejo de Errores Global
 app.use((err, req, res, next) => {
