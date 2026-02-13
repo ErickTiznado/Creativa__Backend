@@ -25,9 +25,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// TODO: Importar rutas aquí (Dev 1, 2, 3, 4)
-// import authRoutes from './routes/auth.routes.js';
-// app.use('/auth', authRoutes);
+
 
 // Manejo de Errores Global
 app.use((err, req, res, next) => {
@@ -41,8 +39,8 @@ app.use((err, req, res, next) => {
 // Iniciar Servidor (Solo si no es test)
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
-        console.log(`🚀 Servidor Express corriendo en http://localhost:${PORT}`);
-        console.log(`📂 Arquitectura Hexagonal lista en src/`);
+        console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
+        console.log(`Arquitectura Hexagonal lista en src/`);
     });
 }
 
