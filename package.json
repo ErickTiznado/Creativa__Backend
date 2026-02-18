@@ -2,6 +2,7 @@
   "name": "creativa__backend",
   "version": "1.0.0",
   "description": "Backend migracion arquitectura hexagonal",
+  "description": "Backend migracion arquitectura hexagonal",
   "homepage": "https://github.com/ErickTiznado/Creativa__Backend#readme",
   "bugs": {
     "url": "https://github.com/ErickTiznado/Creativa__Backend/issues"
@@ -14,8 +15,12 @@
   "author": "",
   "type": "module",
   "main": "src/infrastructure/web/server.js",
+  "main": "src/infrastructure/web/server.js",
   "scripts": {
     "start": "node src/infrastructure/web/server.js",
+    "dev": "node --watch src/infrastructure/web/server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage""start": "node src/infrastructure/web/server.js",
     "dev": "node --watch src/infrastructure/web/server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
