@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
+import campaignRoutes from './routes/campaigns.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -27,6 +29,10 @@ app.get('/', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+
+app.use('/campaigns', campaignRoutes);
+
+app.use('/profile', profileRoutes);
 
 // Manejo de Errores Global
 app.use((err, req, res, next) => {
