@@ -1,0 +1,90 @@
+import ImageEditorRequest from "../../../domain/entities/ImageEditorRequest.js";
+import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
+
+class EditImagesUseCase {
+  constructor(
+    aiPort,
+    storagePort,
+    campaignAssetRepository,
+    contextRetriever,
+  ) {
+    this.aiPort = aiPort;
+    this.storagePort = storagePort;
+    this.campaignAssetRepository = campaignAssetRepository;
+    this.contextRetriever = contextRetriever;
+  }
+
+  async execute(rawRequestData) {
+    const request = new ImageEditorRequest(rawRequestData);
+    const { baseImageURL, maskImageURL, prompt, numberOfImages, config, brandId, campaignId, style } = request;
+
+    let retrievedContext = null;
+    if (this.contextRetriever) {
+      try {
+        console.log(`Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`);
+        retrievedContext = await this.contextRetriever.getContext(brandId, campaignId);
+      } catch (error) {
+        console.error("Error al obtener contexto:", error);
+      }
+    }
+
+    // 1. Construir Prompt Optimizado (Hybrid Approach)
+    const enhancedPrompt = PromptBuilder.build({
+      brief: prompt,
+      context: retrievedContext,
+      style: style,
+      dimensions: config?.aspectRatio || "16:9",
+    });
+
+    console.log("--- EDITANDO CON PROMPT MEJORADO ---");
+    console.log(enhancedPrompt);
+    console.log("------------------------------------");
+
+    const buffers = await this.aiPort.editImage(
+      baseImageURL,
+      maskImageURL,
+      enhancedPrompt,
+      config
+    );
+
+    const storageResult = await Promise.all(
+      buffers.map(async (imageObj) => {
+        const { buffer } = imageObj;
+        // Reusing request object for storage context as it has brandId and campaignId
+        const uploaded = await this.storagePort.uploadFile(
+          buffer,
+          buffer,
+          request,
+        );
+
+        let savedAsset = null;
+        if (this.campaignAssetRepository && uploaded.originalUrl) {
+          try {
+            savedAsset = await this.campaignAssetRepository.save({
+              img_url: uploaded.originalUrl,
+              prompt_used: enhancedPrompt, // Guardamos el prompt real usado
+              campaign_id: campaignId,
+              status: "draft",
+              storage_location: uploaded.status === "gcp" ? "temp" : "temp",
+              is_approved: false,
+              is_saved: true,
+              parent_asset_id: null // Could potentially link to the base image asset ID if we had it
+            });
+          } catch (error) {
+            console.error("Error al guardar metadatos del asset:", error);
+            savedAsset = { error: error.message };
+          }
+        }
+
+        return {
+          ...uploaded,
+          assetId: savedAsset && savedAsset.id ? savedAsset.id : null,
+          savedAsset,
+        };
+      }),
+    );
+    return storageResult;
+  }
+}
+
+export default EditImagesUseCase;

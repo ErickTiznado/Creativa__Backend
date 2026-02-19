@@ -1,8 +1,10 @@
 const MIN_PROMPT_LENGTH = 10;
 const MAX_IMAGES = 4;
 
-class ImageGeneratorRequest {
+class ImageEditorRequest {
   constructor({
+    baseImageURL,
+    maskImageURL,
     prompt,
     numberOfImages = 1,
     config = null,
@@ -11,6 +13,8 @@ class ImageGeneratorRequest {
     style = null,
     context = null,
   }) {
+    this.baseImageURL = baseImageURL;
+    this.maskImageURL = maskImageURL;
     this.prompt = prompt;
     this.numberOfImages = numberOfImages;
     this.config = config;
@@ -22,6 +26,12 @@ class ImageGeneratorRequest {
   }
 
   #validate() {
+    if (!this.baseImageURL) {
+      throw new Error("Base Image URL is required for editing.");
+    }
+    if (!this.maskImageURL) {
+      throw new Error("Mask Image URL is required for editing.");
+    }
     if (!this.prompt) {
       throw new Error("Prompt is required.");
     }
@@ -47,4 +57,4 @@ class ImageGeneratorRequest {
   }
 }
 
-export default ImageGeneratorRequest;
+export default ImageEditorRequest;

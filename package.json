@@ -24,12 +24,8 @@
     "@google-cloud/aiplatform": "^6.1.0",
     "@google-cloud/storage": "^7.18.0",
     "@google-cloud/vertexai": "^1.10.0",
-<<<<<<< HEAD
     "@google/genai": "^1.41.0",
-    "@supabase/supabase-js": "^2.90.1",
-=======
     "@supabase/supabase-js": "^2.95.3",
->>>>>>> 39e0de6a06b383748da62e5844fad6db903baed2
     "axios": "^1.13.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
