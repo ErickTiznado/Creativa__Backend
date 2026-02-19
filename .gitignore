@@ -4,6 +4,5 @@ dist
 .vscode
 .DS_Store
 npm-debug.log
-key
 package-lock.json
 creativa-key.json
