@@ -250,6 +250,21 @@ export const deleteAssets = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+//Valida el estado del asset retornando el estado actual (true/false)
+async function validatorValue(id) {
+  try {
+    if (!id) return -1;
+
+    let { data, err } = await supabase
+      .from("campaign_assets")
+      .select("is_saved")
+      .eq("id", id);
+
+    return data[0].is_saved;
+  } catch (error) {
+    return -1;
+  }
+}
 
 export const manualUpload = async (req, res) => {
   try {
@@ -259,9 +274,16 @@ export const manualUpload = async (req, res) => {
         .status(400)
         .json({ message: "El ID de la campaña es requerido" });
 
-    const { data, error } = await supabase
+    let Value = await validatorValue(idCampaign);
+
+    if (JSON.stringify(Value) == -1) {
+      return res.status(404).json({ message: "Asset no encontrado" });
+    }
+    let newValue = !Value;
+
+    let { data, error } = await supabase
       .from("campaign_assets")
-      .update({ is_saved: true })
+      .update({ is_saved: newValue })
       .eq("id", idCampaign)
       .select("id, img_url");
 
