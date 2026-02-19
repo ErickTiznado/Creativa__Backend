@@ -1,6 +1,5 @@
 import supabase from "../../persistence/supabase/supabaseClient.js";
-import GcpStorageAdapter from "../../external-services/storage/GcpStorageAdapter.js";
-import multer from "multer";
+
 // Ya se encontraba dentro de un model aparte
 class Assets {
   static tableName = "devschema.campaign_assets";
@@ -135,7 +134,6 @@ export const checkAssets = async (req, res) => {
       res.status(400).json({ message: "ID es requerido", success: false });
     }
 
-
     const { data, error } = await supabase
       .from("campaign_assets")
       .select("id")
@@ -208,7 +206,7 @@ export const updateAssets = async (req, res) => {
 
     const { data, error } = await supabase
       .from("campaign_assets")
-      .update({ Url_img: asset_urls })
+      .update({ img_url: asset_urls })
       .eq("id", campaign_id)
       .select();
 
@@ -231,9 +229,9 @@ export const updateAssets = async (req, res) => {
 export const deleteAssets = async (req, res) => {
   try {
     const assetid = req.params.assetid;
-    if(!assetid){
+    if (!assetid) {
       res.status(400).json({ message: "ID es requerido", success: false });
-      return
+      return;
     }
     const { data, error } = await supabase
       .from("campaign_assets")
@@ -253,4 +251,31 @@ export const deleteAssets = async (req, res) => {
   }
 };
 
+export const manualUpload = async (req, res) => {
+  try {
+    const idCampaign = req.body.idCampaign;
+    if (!idCampaign)
+      return res
+        .status(400)
+        .json({ message: "El ID de la campaña es requerido" });
 
+    const { data, error } = await supabase
+      .from("campaign_assets")
+      .update({ is_saved: true })
+      .eq("id", idCampaign)
+      .select("id, img_url");
+
+    if (data.length === 0)
+      return res
+        .status(400)
+        .json({ message: "No ha sido posible guardar el assets" });
+
+    res.status(200).json({
+      success: true,
+      id: data[0].id,
+      img_url: data[0].img_url,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

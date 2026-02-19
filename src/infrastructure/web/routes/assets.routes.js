@@ -6,7 +6,8 @@ import {
   checkAssets,
   save,
   updateAssets,
-
+manualUpload,
+deleteAssets,
 } from "../controllers/assets.controller.js";
 
 
@@ -23,5 +24,7 @@ assetsRoutes.get('/getAll', getAll)
 assetsRoutes.get('/check/:campaignId', checkAssets)
 assetsRoutes.post('/save', save)
 assetsRoutes.post('/updateAssets', updateAssets)
+assetsRoutes.delete('/deleteAssets/:assetid', deleteAssets)
+assetsRoutes.post('/manualUpload', manualUpload)
 
 export default assetsRoutes;
