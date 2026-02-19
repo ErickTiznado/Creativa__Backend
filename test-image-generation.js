@@ -2,7 +2,7 @@
 async function testGenerateImage() {
   const url = "http://localhost:3000/image/generate";
   const body = {
-    prompt: "Una hoja de maple roja sobre un fondo blanco",
+    prompt: "Un gato negro con ojos verdes",
     numberOfImages: 3,
     brandId: "test-brand-123",
     campaignId: "test-campaign-456",

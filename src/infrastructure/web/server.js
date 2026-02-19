@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import imageRoutes from "./routes/image.routes.js";
 import assetRoutes from "./routes/asset.routes.js";
+import assetsRoutes from "./routes/assets.routes.js";
 import campaignRoutes from "./routes/campaigns.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 
@@ -33,9 +34,8 @@ app.get("/", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/image", imageRoutes);
 app.use("/asset", assetRoutes);
-
+app.use("/assets", assetsRoutes);
 app.use("/campaigns", campaignRoutes);
-
 app.use("/profile", profileRoutes);
 
 // Manejo de Errores Global

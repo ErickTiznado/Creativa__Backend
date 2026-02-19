@@ -7,22 +7,13 @@ class GcpStorageAdapter extends Storageport {
     super();
     this.bucket = bucket;
   }
-
   async uploadFile(mainBuffer, thumbnailBuffer, context) {
     const timestamp = Date.now();
     const { brandId, campaignId } = context;
     const fileName = `drafts/${brandId}/${campaignId}/${timestamp}.png`;
     const thumbnailFileName = `drafts/${brandId}/${campaignId}/${timestamp}_thumb.png`;
-
-    // Construct Public URL base
-    // Use env var GCS_PUBLIC_URL if set, otherwise standard GCS URL
-    const publicUrlBase = process.env.GCS_PUBLIC_URL || `https://storage.googleapis.com/${this.bucket.name}`;
-    
-    // Ensure no double slashes if env var has trailing slash
-    const baseUrl = publicUrlBase.replace(/\/$/, ""); 
-
     try {
-      await Promise.all([
+      const [mainFile, thumbnailFile] = await Promise.all([
         this.bucket.file(fileName).save(mainBuffer, {
           metadata: {
             contentType: "image/png",
@@ -34,58 +25,42 @@ class GcpStorageAdapter extends Storageport {
           },
         }),
       ]);
-
       return {
         fileName,
         thumbnailFileName,
-        originalUrl: `${baseUrl}/${fileName}`,
-        thumbnailUrl: `${baseUrl}/${thumbnailFileName}`,
         status: "gcp",
       };
     } catch (error) {
-      console.error("Falló la subida a GCS, usando almacenamiento local...", error);
       const localFileName = path.join("local-storage", fileName);
       const localThumbnailFileName = path.join(
         "local-storage",
         thumbnailFileName,
       );
-      
       await fs.mkdir(path.dirname(localFileName), { recursive: true });
       await fs.writeFile(localFileName, mainBuffer);
       await fs.writeFile(localThumbnailFileName, thumbnailBuffer);
-      
       return {
         fileName,
         thumbnailFileName,
-        originalUrl: null, // Local files don't have a GCS public URL
-        thumbnailUrl: null,
         status: "local",
       };
     }
   }
-
   async approveAsset(main, thumb) {
     const mainFile = this.bucket.file(main);
     const thumbnailFile = this.bucket.file(thumb);
     const mainApproved = main.replace("drafts", "approved");
     const thumbnailApproved = thumb.replace("drafts", "approved");
-    
     await Promise.all([
       mainFile.move(mainApproved),
       thumbnailFile.move(thumbnailApproved),
     ]);
 
-    const publicUrlBase = process.env.GCS_PUBLIC_URL || `https://storage.googleapis.com/${this.bucket.name}`;
-    const baseUrl = publicUrlBase.replace(/\/$/, "");
-
     return {
       mainApproved,
       thumbnailApproved,
-      mainApprovedUrl: `${baseUrl}/${mainApproved}`,
-      thumbnailApprovedUrl: `${baseUrl}/${thumbnailApproved}`,
     };
   }
-
   async deleteAsset(main, thumb) {
     try {
       const mainFile = this.bucket.file(main);
@@ -104,7 +79,6 @@ class GcpStorageAdapter extends Storageport {
       throw error;
     }
   }
-
   async syncLocalFallbacks() {
     try {
       const localDir = path.join("local-storage");

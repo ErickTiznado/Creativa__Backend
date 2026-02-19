@@ -3,30 +3,8 @@ import genAI from "./genAiClient.js";
 import axios from "axios";
 
 class GeminiImageAdapter extends ImageGeneratorPort {
-
-  // Helper to prepare content for editing (prompt + images)
-  #prepareContent(prompt, images) {
-    // Structure for gemini-3-pro-image-preview editing:
-    // contents: [ { role: 'user', parts: [ { text: prompt }, { inlineData: image1 }, { inlineData: mask } ] } ]
-    // Verify order: usually prompt, then base image, then mask image? Or just parts.
-
-    const parts = [
-      { text: prompt }
-    ];
-
-    // Append images (which are already in { inlineData: ... } format from #downloadAndPrepareImage)
-    if (images && Array.isArray(images)) {
-      images.forEach(img => {
-        if (img.inlineData) {
-          parts.push(img);
-        }
-      });
-    }
-
-    return [{
-      role: "user",
-      parts: parts
-    }];
+  #prepareContent(prompt, images = []) {
+    return [{ text: prompt }, ...images];
   }
 
   async #downloadAndPrepareImage(imageURL) {
@@ -48,19 +26,10 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
   }
 
-  // Helper method to verify response structure if needed
   #extractDataFromResponse(response) {
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates returned from Gemini API");
-    }
-    const candidate = response.candidates[0];
-    if (!candidate.content || !candidate.content.parts) {
-      throw new Error("Invalid response structure from Gemini API");
-    }
-
-    for (const part of candidate.content.parts) {
+    for (const part of response.candidates[0].content.parts) {
       if (part.text) {
-        console.warn("Parte de respuesta de texto:", part.text);
+        throw new Error("Text response received");
       } else if (part.inlineData) {
         const imageData = part.inlineData.data;
         const buffer = Buffer.from(imageData, "base64");
@@ -68,84 +37,56 @@ class GeminiImageAdapter extends ImageGeneratorPort {
         return { buffer, mimeType };
       }
     }
-    throw new Error("No image data found in response");
   }
 
   async generateImages(prompt, config, numberOfImages) {
-    const model = "gemini-3-pro-image-preview";
-
-    const requestConfig = {
-      imageConfig: {
-        aspectRatio: config.aspectRatio || "16:9",
-      }
-    };
-
     const data = {
-      model: model,
+      model: "gemini-3.0-pro-image-preview",
       contents: prompt,
-      config: requestConfig
+      config: config,
     };
 
     if (!numberOfImages || numberOfImages === 1) {
-      console.log(`Enviando petición a la API de Gemini (${model})...`);
       const response = await genAI.models.generateContent(data);
-      console.log("Respuesta de Gemini recibida.");
+
       return [this.#extractDataFromResponse(response)];
     } else if (numberOfImages > 1) {
-      // Spread temperatures so each image is visually distinct
-      const baseTemp = 0.8;
-      const tempStep = 0.6 / (numberOfImages - 1); // e.g. 2 imgs → [0.8, 1.4], 4 imgs → [0.8, 1.0, 1.2, 1.4]
-
       const responses = await Promise.all(
-        Array.from({ length: numberOfImages }, (_, i) => {
-          const temp = baseTemp + (tempStep * i);
-          const perCallData = {
-            ...data,
-            config: {
-              ...requestConfig,
-              temperature: parseFloat(temp.toFixed(2)),
-            },
-          };
-          console.log(`Generando imagen ${i + 1}/${numberOfImages} (temp: ${temp.toFixed(2)})...`);
-          return genAI.models.generateContent(perCallData);
-        }),
+        Array.from({ length: numberOfImages }, () =>
+          genAI.models.generateContent(data),
+        ),
       );
       const images = responses.map((r) => this.#extractDataFromResponse(r));
       return images;
     }
   }
 
-  async editImage(baseImageURL, maskImageURL, prompt, config) {
-    // Download and prepare images
-    const images = [
-      await this.#downloadAndPrepareImage(baseImageURL),
-      await this.#downloadAndPrepareImage(maskImageURL),
-    ];
+  async editImage(
+    baseImageURL,
+    referenceImageURLs,
+    maskImageURL,
+    prompt,
+    config,
+  ) {
+    const referenceImages = Array.isArray(referenceImageURLs)
+      ? referenceImageURLs
+      : [referenceImageURLs];
 
-    const model = "gemini-3-pro-image-preview";
+    const imageUrls = [baseImageURL, ...referenceImages, maskImageURL].filter(
+      (url) => url,
+    );
 
-    // Config for editing might differ, but assuming similar structure
-    const requestConfig = {
-      imageConfig: {
-        // Editing might ignore aspect ratio if maintaining original, but let's pass if present
-        ...(config.aspectRatio && { aspectRatio: config.aspectRatio }),
-      }
-    };
-
-    const contents = this.#prepareContent(prompt, images);
+    const images = await Promise.all(
+      imageUrls.map((url) => this.#downloadAndPrepareImage(url)),
+    );
 
     const data = {
-      model: model,
-      contents: contents,
-      config: requestConfig
+      model: "gemini-3.0-pro-image-preview",
+      contents: this.#prepareContent(prompt, images),
+      config: config,
     };
 
-    console.log(`Enviando petición de edición a la API de Gemini (${model})...`);
     const response = await genAI.models.generateContent(data);
-    console.log("Respuesta de edición de Gemini recibida.");
-
     return [this.#extractDataFromResponse(response)];
   }
 }
-
-export default GeminiImageAdapter;
