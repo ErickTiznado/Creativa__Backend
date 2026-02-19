@@ -11,9 +11,7 @@ import { UpdateProfileUseCase } from '../../../application/use-cases/profile/Upd
 import { makeAuthController } from '../controllers/auth.controller.js';
 import { requireAuth } from '../middlewares/authMiddleware.js';
 
-// --- AQUÍ ESTABA EL ERROR: FALTABA INICIALIZAR EL ROUTER ---
 const router = Router();
-// -----------------------------------------------------------
 
 // Inyección de Dependencias (Manual)
 const authAdapter = new SupabaseAuthAdapter();

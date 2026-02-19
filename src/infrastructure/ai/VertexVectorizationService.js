@@ -1,0 +1,121 @@
+import { PredictionServiceClient, helpers } from '@google-cloud/aiplatform';
+import supabase from '../persistence/supabase/supabaseClient.js';
+import 'dotenv/config';
+
+const PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
+const LOCATION = process.env.GOOGLE_LOCATION || 'us-central1';
+const EMBEDDING_MODEL = 'text-embedding-004';
+const KEY_FILE_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+class VertexVectorizationService {
+    constructor() {
+        // Validación de seguridad para que no crashee en silencio si falta el ID
+        if (!PROJECT_ID) {
+            console.error("[VertexVectorizationService] ⚠️ Falta GOOGLE_PROJECT_ID en el .env");
+        }
+
+        const clientOptions = {
+            apiEndpoint: `${LOCATION}-aiplatform.googleapis.com`,
+            projectId: PROJECT_ID,
+        };
+
+        // Le pasamos la ruta de tu JSON (./config/key/creativa-key.json)
+        if (KEY_FILE_PATH) {
+            clientOptions.keyFilename = KEY_FILE_PATH;
+        }
+
+        this.predictionClient = new PredictionServiceClient(clientOptions);
+    }
+
+    // --- Método Privado: Lo que antes hacía VectorCore ---
+    async _generateEmbedding(text) {
+        const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
+
+        // 1. CORRECCIÓN: Usar 'content' y 'task_type' tal cual lo pedía tu código original
+        const instance = helpers.toValue({
+            content: text,
+            task_type: "RETRIEVAL_DOCUMENT"
+        });
+
+        const request = {
+            endpoint,
+            instances: [instance],
+        };
+
+        const [response] = await this.predictionClient.predict(request);
+        const predictions = response.predictions;
+
+        if (!predictions || predictions.length === 0) {
+            throw new Error("No se obtuvo embedding del modelo de Vertex AI");
+        }
+
+        // 2. CORRECCIÓN: Extraer usando 'embeddings' (formato de text-embedding-004)
+        const embeddingsProto = predictions[0].structValue.fields.embeddings;
+        const valuesProto = embeddingsProto.structValue.fields.values;
+
+        // Convertir a array de números
+        return valuesProto.listValue.values.map((v) => Number(v.numberValue));
+    }
+    // --- Método del Puerto: El que llama tu Caso de Uso ---
+    async vectorizeCampaign(campaignId, briefData) {
+        try {
+            if (!briefData) {
+                console.warn(`[VertexVectorizationService] Sin datos de brief para la campaña ${campaignId}`);
+                return;
+            }
+
+            // 1. Concatenar campos
+            const parts = [];
+            if (briefData.nombre_campaing) parts.push(`Nombre: ${briefData.nombre_campaing}`);
+            if (briefData.Objective) parts.push(`Objetivo: ${briefData.Objective}`);
+            if (briefData.Description) parts.push(`Descripción: ${briefData.Description}`);
+            if (briefData.observations) parts.push(`Observaciones: ${briefData.observations}`);
+            if (briefData.ContentType) parts.push(`Tipo de Contenido: ${briefData.ContentType}`);
+
+            const textToVectorize = parts.join("\n");
+
+            if (!textToVectorize.trim()) {
+                console.warn(`[VertexVectorizationService] Texto vacío para la campaña ${campaignId}`);
+                return;
+            }
+
+            console.log(`[VertexVectorizationService] Conectando a Vertex AI para vectorizar campaña ${campaignId}...`);
+
+            // 2. Generar embedding usando nuestro método privado
+            const embedding = await this._generateEmbedding(textToVectorize);
+
+            // 3. Guardar en Supabase
+            const { data: existing, error: searchError } = await supabase
+                .schema('devschema')
+                .from('campaign_vectors')
+                .select('id')
+                .eq('campaign_id', campaignId);
+
+            if (searchError) throw searchError;
+
+            if (existing && existing.length > 0) {
+                await supabase
+                    .schema('devschema')
+                    .from('campaign_vectors')
+                    .update({ embedding: embedding, text_content: textToVectorize })
+                    .eq('id', existing[0].id);
+                console.log(`[VertexVectorizationService] Vector actualizado en BD para campaña ${campaignId}`);
+            } else {
+                await supabase
+                    .schema('devschema')
+                    .from('campaign_vectors')
+                    .insert([{
+                        campaign_id: campaignId,
+                        embedding: embedding,
+                        text_content: textToVectorize
+                    }]);
+                console.log(`[VertexVectorizationService] Vector creado exitosamente en BD para campaña ${campaignId}`);
+            }
+
+        } catch (error) {
+            console.error(`[VertexVectorizationService] Error crítico vectorizando campaña ${campaignId}:`, error);
+        }
+    }
+}
+
+export default VertexVectorizationService;
