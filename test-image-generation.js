@@ -1,12 +1,12 @@
 // Native fetch in Node 18+
 async function testGenerateImage() {
-  const url = "http://localhost:5153/image/generate";
+  const url = "http://localhost:3000/image/generate";
   const body = {
-    prompt:
-      "A futuristic city with flying cars and neon lights, cyberpunk style",
-    numberOfImages: 1,
+    prompt: "Una hoja de maple roja sobre un fondo blanco",
+    numberOfImages: 3,
     brandId: "test-brand-123",
     campaignId: "test-campaign-456",
+    style: "minimalist",
     config: {
       aspectRatio: "16:9",
     },

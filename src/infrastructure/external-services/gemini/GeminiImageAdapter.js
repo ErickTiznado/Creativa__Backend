@@ -3,13 +3,13 @@ import genAI from "./genAiClient.js";
 import axios from "axios";
 
 class GeminiImageAdapter extends ImageGeneratorPort {
-  
+
   // Helper to prepare content for editing (prompt + images)
   #prepareContent(prompt, images) {
     // Structure for gemini-3-pro-image-preview editing:
     // contents: [ { role: 'user', parts: [ { text: prompt }, { inlineData: image1 }, { inlineData: mask } ] } ]
     // Verify order: usually prompt, then base image, then mask image? Or just parts.
-    
+
     const parts = [
       { text: prompt }
     ];
@@ -55,7 +55,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
     const candidate = response.candidates[0];
     if (!candidate.content || !candidate.content.parts) {
-       throw new Error("Invalid response structure from Gemini API");
+      throw new Error("Invalid response structure from Gemini API");
     }
 
     for (const part of candidate.content.parts) {
@@ -72,7 +72,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
   }
 
   async generateImages(prompt, config, numberOfImages) {
-    const model = "gemini-3-pro-image-preview"; 
+    const model = "gemini-3-pro-image-preview";
 
     const requestConfig = {
       imageConfig: {
@@ -92,10 +92,23 @@ class GeminiImageAdapter extends ImageGeneratorPort {
       console.log("Respuesta de Gemini recibida.");
       return [this.#extractDataFromResponse(response)];
     } else if (numberOfImages > 1) {
+      // Spread temperatures so each image is visually distinct
+      const baseTemp = 0.8;
+      const tempStep = 0.6 / (numberOfImages - 1); // e.g. 2 imgs → [0.8, 1.4], 4 imgs → [0.8, 1.0, 1.2, 1.4]
+
       const responses = await Promise.all(
-        Array.from({ length: numberOfImages }, () =>
-          genAI.models.generateContent(data),
-        ),
+        Array.from({ length: numberOfImages }, (_, i) => {
+          const temp = baseTemp + (tempStep * i);
+          const perCallData = {
+            ...data,
+            config: {
+              ...requestConfig,
+              temperature: parseFloat(temp.toFixed(2)),
+            },
+          };
+          console.log(`Generando imagen ${i + 1}/${numberOfImages} (temp: ${temp.toFixed(2)})...`);
+          return genAI.models.generateContent(perCallData);
+        }),
       );
       const images = responses.map((r) => this.#extractDataFromResponse(r));
       return images;
@@ -110,7 +123,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     ];
 
     const model = "gemini-3-pro-image-preview";
-    
+
     // Config for editing might differ, but assuming similar structure
     const requestConfig = {
       imageConfig: {
