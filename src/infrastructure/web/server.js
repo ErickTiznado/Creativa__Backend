@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes.js';
-
+import assetsRoutes from './routes/assets.routes.js';
 // Cargar variables de entorno
 dotenv.config();
 
@@ -16,7 +16,6 @@ app.use(helmet()); // Seguridad headers
 app.use(cors()); // Permitir peticiones cross-origin
 app.use(express.json()); // Parsing JSON body
 app.use(morgan('dev')); // Logging HTTP
-
 // Health Check
 app.get('/', (req, res) => {
     res.json({
@@ -27,6 +26,8 @@ app.get('/', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+
+app.use('/assets', assetsRoutes);
 
 // Manejo de Errores Global
 app.use((err, req, res, next) => {
