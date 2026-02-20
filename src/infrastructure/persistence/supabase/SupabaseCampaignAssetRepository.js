@@ -5,22 +5,23 @@ class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
   async save(assetData) {
     const {
       img_url,
+      thumbnail_url = null,
       prompt_used,
-      campaign_id, // maps to campaign_assets column
+      campaign_id,
       status = 'draft',
       storage_location = 'temp',
       is_approved = false,
-      is_saved = true,
+      is_saved = false,
       parent_asset_id = null
     } = assetData;
 
     const { data, error } = await supabase
-      .from('campaign_assets') // table name
+      .from('campaign_assets')
       .insert([
         {
-          img_url: { asset_urls: Array.isArray(img_url) ? img_url : [img_url] },
+          img_url: { original: img_url, thumbnail: thumbnail_url },
           prompt_used,
-          campaign_assets: campaign_id, // FK column name (matches schema)
+          campaign_assets: campaign_id,
           status,
           storage_location,
           is_approved,
@@ -46,7 +47,6 @@ class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
       .single();
 
     if (error) {
-      // If no rows found, data is null, error is 'PGRST116' (JSON object is null)
       if (error.code === 'PGRST116') return null;
       throw new Error(`Failed to find asset: ${error.message}`);
     }
@@ -54,13 +54,12 @@ class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
   }
 
   async markAsApproved(assetId, updateData) {
-    const { newUrl, storageLocation, approvedAt } = updateData;
-    
-    // We update the URL to the permanent one, set approved flag, status, location
+    const { newUrl, newThumbnailUrl, storageLocation, approvedAt } = updateData;
+
     const { data, error } = await supabase
       .from('campaign_assets')
       .update({
-        img_url: { asset_urls: [newUrl] }, // Update URL to permanent location
+        img_url: { original: newUrl, thumbnail: newThumbnailUrl },
         is_approved: true,
         status: 'approved',
         storage_location: storageLocation,

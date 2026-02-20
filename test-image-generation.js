@@ -2,13 +2,13 @@
 async function testGenerateImage() {
   const url = "http://localhost:3000/image/generate";
   const body = {
-    prompt: "Un gato negro con ojos verdes",
-    numberOfImages: 3,
-    brandId: "test-brand-123",
+    prompt: "Unos jovenes trabajando en una oficina con una computadora",
+    numberOfImages: 4,
+    // brandId: "test-brand-123", // Optional now
     campaignId: "test-campaign-456",
     style: "minimalist",
     config: {
-      aspectRatio: "16:9",
+      aspectRatio: "9:16",
     },
   };
 

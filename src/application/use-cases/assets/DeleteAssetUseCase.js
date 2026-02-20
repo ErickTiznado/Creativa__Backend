@@ -11,26 +11,25 @@ class DeleteAssetUseCase {
             throw new Error(`Asset with ID ${assetId} not found.`);
         }
 
-        const fileUrl = asset.img_url.asset_urls[0];
-        const urlParts = fileUrl.split('/');
-        // Determine if it's in drafts or approved to find the path index
-        let pathIndex = urlParts.indexOf('drafts');
-        if (pathIndex === -1) {
-             pathIndex = urlParts.indexOf('approved');
-        }
+        const mainUrl = asset.img_url?.original;
+        const thumbUrl = asset.img_url?.thumbnail;
 
-        if (pathIndex === -1) {
-             // If local or unknown structure, we might skip storage deletion or try best effort
-             console.warn("No se pudo determinar la ruta de almacenamiento para eliminar el asset.");
+        const extractPath = (url) => {
+            const urlParts = url.split('/');
+            let idx = urlParts.indexOf('drafts');
+            if (idx === -1) idx = urlParts.indexOf('approved');
+            return idx !== -1 ? urlParts.slice(idx).join('/') : null;
+        };
+
+        const mainPath = mainUrl ? extractPath(mainUrl) : null;
+        const thumbPath = thumbUrl ? extractPath(thumbUrl) : (mainPath ? mainPath.replace('.png', '_thumb.png') : null);
+
+        if (mainPath && thumbPath) {
+            await this.storagePort.deleteAsset(mainPath, thumbPath);
         } else {
-            const mainFilePath = urlParts.slice(pathIndex).join('/');
-            const thumbFilePath = mainFilePath.replace('.png', '_thumb.png');
-            
-            // Delete from storage
-            await this.storagePort.deleteAsset(mainFilePath, thumbFilePath);
+            console.warn("Could not determine storage paths for asset deletion.");
         }
 
-        // Delete from DB
         await this.campaignAssetRepository.delete(assetId);
 
         return { message: "Asset deleted successfully." };

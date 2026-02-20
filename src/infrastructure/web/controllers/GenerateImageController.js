@@ -10,14 +10,14 @@ class GenerateImageController {
   constructor() {
     this.genAiClient = genAiClient;
     this.gcsClient = gcsClient;
-    
+
     // Ensure we pass the bucket instance, not the storage client
     const bucketName = process.env.GCS_BUCKET_NAME;
     if (!bucketName) {
       console.warn("ADVERTENCIA: GCS_BUCKET_NAME no está configurado en las variables de entorno.");
     }
     const bucket = this.gcsClient.bucket(bucketName);
-    
+
     this.gcpStorageAdapter = new GcpStorageAdapter(bucket);
     this.geminiImageAdapter = new GeminiImageAdapter(this.genAiClient);
     this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
@@ -34,16 +34,48 @@ class GenerateImageController {
 
   async generateImage(req, res) {
     try {
-      const { prompt, numberOfImages, config, brandId, campaignId, style } = req.body;
-      const images = await this.generateImagesUseCase.execute({
+      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style } = req.body;
+
+      // Gemini SDK espera explícitamente el objeto "imageConfig" anidado dentro de "config"
+      const generationConfig = {
+        ...config,
+      };
+      if (imageConfig) {
+        generationConfig.imageConfig = imageConfig;
+      }
+
+      const rawResults = await this.generateImagesUseCase.execute({
         prompt,
         numberOfImages,
-        config,
+        config: generationConfig,
         brandId,
         campaignId,
         style
       });
-      return res.status(200).json(images);
+
+      // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status }]
+      const assets = rawResults.map((item) => {
+        const rawImgUrl = item.savedAsset?.img_url;
+        let imgUrl = item.originalUrl;
+        let thumbUrl = item.thumbnailUrl || null;
+
+        if (rawImgUrl?.original) {
+          imgUrl = rawImgUrl.original;
+          thumbUrl = rawImgUrl.thumbnail || thumbUrl;
+        }
+
+        return {
+          id: item.savedAsset?.id || item.assetId || null,
+          img_url: imgUrl,
+          thumbnail_url: thumbUrl,
+          prompt_used: item.savedAsset?.prompt_used || prompt,
+          campaign_id: campaignId,
+          status: item.savedAsset?.status || "draft",
+          parent_asset_id: item.savedAsset?.parent_asset_id || null,
+        };
+      });
+
+      return res.status(200).json(assets);
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

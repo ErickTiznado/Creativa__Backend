@@ -28,13 +28,21 @@ class PromptBuilder {
     const parts = [];
 
     // 0. Preparar Estilo
-    const { stylePrefix, styleSuffix } = this.getStyleComponents(style);
+    const predefinedStyleDescription = this.getStyleComponents(style);
 
     // ---------------------------------------------------------
     // CAPA 1: SUJETO (El Ancla)
     // ---------------------------------------------------------
-    if (stylePrefix) parts.push(stylePrefix);
     parts.push(brief);
+
+    // ---------------------------------------------------------
+    // CAPA 1.5: DESCRIPCIÓN DE ESTILO PERSONALIZADA
+    // ---------------------------------------------------------
+    const finalStyleDescription = predefinedStyleDescription;
+
+    if (finalStyleDescription) {
+      parts.push(`OVERALL VISUAL STYLE & AESTHETIC DIRECTIVE:\n- The following stylistic description must dictate the mood, colors, and overall visual delivery of the image:\n"${finalStyleDescription}"\n- Ensure the image strictly adheres to this aesthetic.`);
+    }
 
     // ---------------------------------------------------------
     // CAPA 2: REGLAS DE MARCA (Forzadas - NUEVO)
@@ -60,8 +68,6 @@ class PromptBuilder {
     // CAPA 4: CALIDAD Y TÉCNICA (Boilerplate)
     // ---------------------------------------------------------
     parts.push(this.qualityBoilerplate);
-
-    if (styleSuffix) parts.push(styleSuffix);
 
     if (dimensions) {
       parts.push(`Aspect Ratio: ${dimensions}`);
@@ -105,17 +111,19 @@ class PromptBuilder {
   }
 
   /**
-   * Extrae componentes de estilo (Prefix/Suffix)
+   * Extrae componentes de estilo (Description)
    */
   getStyleComponents(style) {
-    const def = STYLE_DEFINITIONS[style];
+    if (!style) return "";
+
+    // Normalize string to match keys in STYLE_DEFINITIONS (e.g., "oil painting" -> "oil-painting")
+    const normalizedStyle = style.toLowerCase().replace(/\s+/g, '-');
+    const def = STYLE_DEFINITIONS[normalizedStyle] || STYLE_DEFINITIONS[style];
+
     if (def) {
-      return {
-        stylePrefix: def.prefix || "",
-        styleSuffix: def.suffix || "",
-      };
+      return def.description || "";
     }
-    return { stylePrefix: "", styleSuffix: style || "" };
+    return style || "";
   }
 }
 

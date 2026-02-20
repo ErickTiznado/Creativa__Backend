@@ -7,26 +7,38 @@ class Assets {
 // ya se encontraban en el controlador =>
 export const getAssets = async (req, res) => {
   try {
-    const { is_saved, campaign_id } = req.query;
+    const { is_saved, is_approved, campaign_id } = req.query;
 
-    let query = Assets.select();
+    let query = supabase
+      .from("campaign_assets")
+      .select("*");
 
     // Filter by is_saved if provided
     if (is_saved !== undefined) {
       const isSavedBool = is_saved === "true" || is_saved === true;
-      query = query.where("is_saved", isSavedBool);
+      query = query.eq("is_saved", isSavedBool);
+    }
+
+    // Filter by is_approved if provided
+    if (is_approved !== undefined) {
+      const isApprovedBool = is_approved === "true" || is_approved === true;
+      query = query.eq("is_approved", isApprovedBool);
     }
 
     // Filter by campaign if provided
     if (campaign_id) {
-      query = query.where("campaign_assets", campaign_id);
+      query = query.eq("campaign_assets", campaign_id);
     }
 
-    const response = await query.get();
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     res.status(200).json({
       message: "Ok",
-      data: response,
+      data: data || [],
       success: true,
     });
   } catch (e) {
@@ -56,10 +68,18 @@ export const updateAsset = async (req, res) => {
     }
 
     // Solo actualiza el campo is_saved, sin ejecutar flujo de aprobación
-    const updated = await Assets.where("id", id).update({ is_saved });
+    const { data: updated, error } = await supabase
+      .from("campaign_assets")
+      .update({ is_saved })
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     if (!updated || updated.length === 0) {
-      res.status(404).json({ message: "Asset no encontrado", success: false });
+      return res.status(404).json({ message: "Asset no encontrado", success: false });
     }
 
     res.status(200).json({
@@ -69,7 +89,7 @@ export const updateAsset = async (req, res) => {
     });
   } catch (e) {
     console.error("Error updateAsset:", e);
-    res.status(50).json({
+    res.status(500).json({
       message: "Error al actualizar asset",
       error: e.message,
       success: false,

@@ -24,9 +24,9 @@ class GenerateImagesUseCase {
         console.log(`Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`);
         retrievedContext = await this.contextRetriever.getContext(brandId, campaignId);
         if (retrievedContext) {
-            console.log("Contexto obtenido exitosamente.");
+          console.log("Contexto obtenido exitosamente.");
         } else {
-            console.log("No se encontró contexto específico.");
+          console.log("No se encontró contexto específico.");
         }
       } catch (error) {
         console.error("Error al obtener contexto:", error);
@@ -65,12 +65,13 @@ class GenerateImagesUseCase {
           try {
             savedAsset = await this.campaignAssetRepository.save({
               img_url: uploaded.originalUrl,
-              prompt_used: enhancedPrompt, // Guardamos el prompt real usado
+              thumbnail_url: uploaded.thumbnailUrl,
+              prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
               storage_location: uploaded.status === "gcp" ? "temp" : "temp",
               is_approved: false,
-              is_saved: true,
+              is_saved: false,
             });
           } catch (error) {
             console.error("Error al guardar metadatos del asset:", error);

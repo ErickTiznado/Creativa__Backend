@@ -10,10 +10,10 @@ class AssetController {
         this.gcsClient = gcsClient;
         const bucketName = process.env.GCS_BUCKET_NAME;
         const bucket = this.gcsClient.bucket(bucketName);
-        
+
         this.gcpStorageAdapter = new GcpStorageAdapter(bucket);
         this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
-        
+
         this.approveAssetUseCase = new ApproveAssetUseCase(this.gcpStorageAdapter, this.campaignAssetRepository);
         this.deleteAssetUseCase = new DeleteAssetUseCase(this.gcpStorageAdapter, this.campaignAssetRepository);
         this.getAssetsUseCase = new GetAssetsUseCase(this.campaignAssetRepository);
@@ -30,11 +30,25 @@ class AssetController {
                 return res.status(400).json({ error: "campaign_id query parameter is required." });
             }
             const assets = await this.getAssetsUseCase.execute(campaign_id);
-            // Frontend expects { success: true, data: [...] } or just [...]?
-            // services/assetService.js: if (response.data && response.data.success) return response.data.data;
-            // services/assetsService.js: return response.data.data || [];
-            // Let's standardize on { success: true, data: assets }
-            return res.status(200).json({ success: true, data: assets });
+
+            // Normalize img_url: DB stores { asset_urls: ["url1", ...] }
+            // Frontend expects a plain string URL
+            const normalized = assets.map((asset) => {
+                let imgUrl = asset.img_url;
+                let thumbUrl = null;
+
+                if (typeof imgUrl !== "string") {
+                    if (imgUrl?.original) {
+                        thumbUrl = imgUrl.thumbnail || null;
+                        imgUrl = imgUrl.original;
+                    } else {
+                        imgUrl = null;
+                    }
+                }
+                return { ...asset, img_url: imgUrl, thumbnail_url: thumbUrl };
+            });
+
+            return res.status(200).json({ success: true, data: normalized });
         } catch (error) {
             console.error("Error fetching assets:", error);
             return res.status(500).json({ error: error.message });
@@ -47,14 +61,14 @@ class AssetController {
             if (!assetId) {
                 return res.status(400).json({ error: "Asset ID is required." });
             }
-            
+
             const result = await this.approveAssetUseCase.execute(assetId);
             return res.status(200).json(result);
         } catch (error) {
             console.error("Falló la aprobación del asset:", error);
             // Distinguish between Not Found and other errors if possible
             if (error.message.includes("not found")) {
-                 return res.status(404).json({ error: error.message });
+                return res.status(404).json({ error: error.message });
             }
             return res.status(500).json({ error: error.message });
         }
@@ -64,7 +78,7 @@ class AssetController {
         try {
             const { assetId } = req.params;
             if (!assetId) {
-                 return res.status(400).json({ error: "Asset ID is required." });
+                return res.status(400).json({ error: "Asset ID is required." });
             }
 
             const result = await this.deleteAssetUseCase.execute(assetId);
@@ -72,7 +86,7 @@ class AssetController {
         } catch (error) {
             console.error("Falló la eliminación del asset:", error);
             if (error.message.includes("not found")) {
-                 return res.status(404).json({ error: error.message });
+                return res.status(404).json({ error: error.message });
             }
             return res.status(500).json({ error: error.message });
         }

@@ -98,16 +98,28 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
             campaign.assets = [];
         } else {
 
-            campaign.assets = assets.map(asset => ({
-                id: asset.id,
-                img_url: asset.img_url,
-                prompt_used: asset.prompt_used,
-                is_approved: asset.is_approved,
-                status: asset.status,
-                created_at: asset.created_at,
-                parent_asset_id: asset.parent_asset_id,
-                is_refinement: asset.parent_asset_id ? true : false,
-            }));
+            campaign.assets = assets.map(asset => {
+                const rawUrl = asset.img_url;
+                let imgUrl = rawUrl;
+                let thumbUrl = null;
+
+                if (typeof rawUrl !== 'string' && rawUrl) {
+                    imgUrl = rawUrl.original || null;
+                    thumbUrl = rawUrl.thumbnail || null;
+                }
+
+                return {
+                    id: asset.id,
+                    img_url: imgUrl,
+                    thumbnail_url: thumbUrl,
+                    prompt_used: asset.prompt_used,
+                    is_approved: asset.is_approved,
+                    status: asset.status,
+                    created_at: asset.created_at,
+                    parent_asset_id: asset.parent_asset_id,
+                    is_refinement: asset.parent_asset_id ? true : false,
+                };
+            });
         }
 
         return campaign;

@@ -38,9 +38,10 @@ class ImageGeneratorRequest {
       throw new Error(`numberOfImages must be between 1 and ${MAX_IMAGES}.`);
     }
 
-    if (!this.brandId) {
-      throw new Error("Brand ID is required.");
-    }
+    // brandId is optional now that storage paths use campaignId
+    // if (!this.brandId) {
+    //   throw new Error("Brand ID is required.");
+    // }
     if (!this.campaignId) {
       throw new Error("Campaign ID is required.");
     }

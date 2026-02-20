@@ -62,13 +62,14 @@ class EditImagesUseCase {
           try {
             savedAsset = await this.campaignAssetRepository.save({
               img_url: uploaded.originalUrl,
-              prompt_used: enhancedPrompt, // Guardamos el prompt real usado
+              thumbnail_url: uploaded.thumbnailUrl,
+              prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
               storage_location: uploaded.status === "gcp" ? "temp" : "temp",
               is_approved: false,
-              is_saved: true,
-              parent_asset_id: null // Could potentially link to the base image asset ID if we had it
+              is_saved: false,
+              parent_asset_id: null
             });
           } catch (error) {
             console.error("Error al guardar metadatos del asset:", error);

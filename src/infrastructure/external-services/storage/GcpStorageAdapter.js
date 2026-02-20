@@ -3,15 +3,18 @@ import fs from "fs/promises";
 import path from "path";
 
 class GcpStorageAdapter extends Storageport {
+  #baseUrl;
+
   constructor(bucket) {
     super();
     this.bucket = bucket;
+    this.#baseUrl = `https://storage.googleapis.com/${bucket.name}`;
   }
   async uploadFile(mainBuffer, thumbnailBuffer, context) {
     const timestamp = Date.now();
-    const { brandId, campaignId } = context;
-    const fileName = `drafts/${brandId}/${campaignId}/${timestamp}.png`;
-    const thumbnailFileName = `drafts/${brandId}/${campaignId}/${timestamp}_thumb.png`;
+    const { campaignId } = context;
+    const fileName = `drafts/${campaignId}/${timestamp}.png`;
+    const thumbnailFileName = `drafts/${campaignId}/${timestamp}_thumb.png`;
     try {
       const [mainFile, thumbnailFile] = await Promise.all([
         this.bucket.file(fileName).save(mainBuffer, {
@@ -28,6 +31,8 @@ class GcpStorageAdapter extends Storageport {
       return {
         fileName,
         thumbnailFileName,
+        originalUrl: `${this.#baseUrl}/${fileName}`,
+        thumbnailUrl: `${this.#baseUrl}/${thumbnailFileName}`,
         status: "gcp",
       };
     } catch (error) {
@@ -42,6 +47,8 @@ class GcpStorageAdapter extends Storageport {
       return {
         fileName,
         thumbnailFileName,
+        originalUrl: `${this.#baseUrl}/${fileName}`,
+        thumbnailUrl: `${this.#baseUrl}/${thumbnailFileName}`,
         status: "local",
       };
     }
@@ -59,6 +66,8 @@ class GcpStorageAdapter extends Storageport {
     return {
       mainApproved,
       thumbnailApproved,
+      mainApprovedUrl: `${this.#baseUrl}/${mainApproved}`,
+      thumbApprovedUrl: `${this.#baseUrl}/${thumbnailApproved}`,
     };
   }
   async deleteAsset(main, thumb) {

@@ -41,7 +41,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
 
   async generateImages(prompt, config, numberOfImages) {
     const data = {
-      model: "gemini-3.0-pro-image-preview",
+      model: "gemini-3-pro-image-preview",
       contents: prompt,
       config: config,
     };
@@ -90,6 +90,4 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     return [this.#extractDataFromResponse(response)];
   }
 }
-
-
 export default GeminiImageAdapter;

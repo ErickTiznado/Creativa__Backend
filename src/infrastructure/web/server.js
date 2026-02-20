@@ -20,7 +20,8 @@ const PORT = process.env.PORT || 3000;
 // Middlewares Globales
 app.use(helmet()); // Seguridad headers
 app.use(cors()); // Permitir peticiones cross-origin
-app.use(express.json()); // Parsing JSON body
+app.use(express.json({ limit: "50mb" })); // Parsing JSON body with increased limit
+app.use(express.urlencoded({ limit: "50mb", extended: true })); // URL-encoded body
 app.use(morgan("dev")); // Logging HTTP
 
 // Health Check

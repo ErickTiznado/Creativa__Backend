@@ -29,9 +29,11 @@ class ImageEditorRequest {
     if (!this.baseImageURL) {
       throw new Error("Base Image URL is required for editing.");
     }
-    if (!this.maskImageURL) {
-      throw new Error("Mask Image URL is required for editing.");
-    }
+    // Start of Optional validations for different modes (Edit vs Refine)
+    // if (!this.maskImageURL) {
+    //   throw new Error("Mask Image URL is required for editing.");
+    // }
+
     if (!this.prompt) {
       throw new Error("Prompt is required.");
     }
@@ -48,9 +50,10 @@ class ImageEditorRequest {
       throw new Error(`numberOfImages must be between 1 and ${MAX_IMAGES}.`);
     }
 
-    if (!this.brandId) {
-      throw new Error("Brand ID is required.");
-    }
+    // brandId is optional now that storage paths use campaignId
+    // if (!this.brandId) {
+    //   throw new Error("Brand ID is required.");
+    // }
     if (!this.campaignId) {
       throw new Error("Campaign ID is required.");
     }
