@@ -90,3 +90,6 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     return [this.#extractDataFromResponse(response)];
   }
 }
+
+
+export default GeminiImageAdapter;

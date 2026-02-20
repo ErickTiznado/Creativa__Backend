@@ -9,6 +9,7 @@ import assetRoutes from "./routes/asset.routes.js";
 import assetsRoutes from "./routes/assets.routes.js";
 import campaignRoutes from "./routes/campaigns.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -37,6 +38,8 @@ app.use("/asset", assetRoutes);
 app.use("/assets", assetsRoutes);
 app.use("/campaigns", campaignRoutes);
 app.use("/profile", profileRoutes);
+app.use('/ai', chatRoutes);
+
 
 // Manejo de Errores Global
 app.use((err, req, res, next) => {
