@@ -5,6 +5,7 @@ import genAiClient from "../../external-services/gemini/genAiClient.js";
 import gcsClient from "../../external-services/storage/gcsClient.js";
 import SupabaseCampaignAssetRepository from "../../persistence/supabase/SupabaseCampaignAssetRepository.js";
 import SupabaseContextRetriever from "../../persistence/supabase/SupabaseContextRetriever.js";
+import SharpImageAdapter from "../../external-services/image-processing/SharpImageAdapter.js"; // <-- NUEVO: Importamos el adaptador de Sharp
 
 class GenerateImageController {
   constructor() {
@@ -22,19 +23,22 @@ class GenerateImageController {
     this.geminiImageAdapter = new GeminiImageAdapter(this.genAiClient);
     this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
     this.contextRetriever = new SupabaseContextRetriever();
+    this.sharpImageAdapter = new SharpImageAdapter(); // <-- NUEVO: Instanciamos el adaptador
 
     this.generateImagesUseCase = new GenerateImagesUseCase(
       this.geminiImageAdapter,
       this.gcpStorageAdapter,
       this.campaignAssetRepository,
-      this.contextRetriever
+      this.contextRetriever,
+      this.sharpImageAdapter // <-- NUEVO: Lo inyectamos al caso de uso
     );
     this.generateImage = this.generateImage.bind(this);
   }
 
   async generateImage(req, res) {
     try {
-      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style } = req.body;
+      // NUEVO: Agregamos methodToUse a la desestructuración
+      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse } = req.body;
 
       // Gemini SDK espera explícitamente el objeto "imageConfig" anidado dentro de "config"
       const generationConfig = {
@@ -50,7 +54,8 @@ class GenerateImageController {
         config: generationConfig,
         brandId,
         campaignId,
-        style
+        style,
+        methodToUse // <-- NUEVO: Se lo pasamos al payload del caso de uso
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status }]

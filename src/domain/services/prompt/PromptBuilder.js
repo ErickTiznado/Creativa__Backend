@@ -125,6 +125,10 @@ class PromptBuilder {
     }
     return style || "";
   }
+
+  static applyBrandIdentity(originalPrompt) {
+    return `${originalPrompt}\n\nINSTRUCCIONES DE MARCA: Inserta el logo de "creativa STUDIOS" en la esquina superior izquierda. No deformes el logo. Usa estrictamente los colores Rojo (#da0d15) [cite: 53], Negro (#000000) [cite: 52] o Blanco (#ffffff) [cite: 54] según el contraste.`;
+  }
 }
 
 export default new PromptBuilder();
