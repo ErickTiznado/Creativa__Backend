@@ -9,6 +9,20 @@ class GeminiImageAdapter extends ImageGeneratorPort {
 
   async #downloadAndPrepareImage(imageURL) {
     try {
+      // Check if it's a data URL (base64)
+      if (imageURL.startsWith("data:")) {
+        const [header, base64Data] = imageURL.split(",");
+        const mimetype = header.split(":")[1].split(";")[0];
+
+        return {
+          inlineData: {
+            mimeType: mimetype,
+            data: base64Data,
+          },
+        };
+      }
+
+      // If it's a regular URL, download it
       const response = await axios.get(imageURL, {
         responseType: "arraybuffer",
       });
@@ -22,7 +36,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
         },
       };
     } catch (error) {
-      throw new Error(`Failed to download image: ${error.message}`);
+      throw new Error(`Failed to download or prepare image: ${error.message}`);
     }
   }
 
@@ -81,7 +95,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     );
 
     const data = {
-      model: "gemini-3.0-pro-image-preview",
+      model: "gemini-3-pro-image-preview",
       contents: this.#prepareContent(prompt, images),
       config: config,
     };

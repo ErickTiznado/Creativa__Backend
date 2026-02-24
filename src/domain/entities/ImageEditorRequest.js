@@ -5,6 +5,7 @@ class ImageEditorRequest {
   constructor({
     baseImageURL,
     maskImageURL,
+    referenceImageURLs = null,
     prompt,
     numberOfImages = 1,
     config = null,
@@ -12,9 +13,11 @@ class ImageEditorRequest {
     campaignId,
     style = null,
     context = null,
+    assetId = null,
   }) {
     this.baseImageURL = baseImageURL;
     this.maskImageURL = maskImageURL;
+    this.referenceImageURLs = referenceImageURLs;
     this.prompt = prompt;
     this.numberOfImages = numberOfImages;
     this.config = config;
@@ -22,6 +25,7 @@ class ImageEditorRequest {
     this.campaignId = campaignId;
     this.style = style;
     this.context = context;
+    this.assetId = assetId;
     this.#validate();
   }
 

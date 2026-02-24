@@ -30,6 +30,12 @@ export const getAssets = async (req, res) => {
       query = query.eq("campaign_assets", campaign_id);
     }
 
+    // Filter parent-only images (exclude refinements)
+    const { parent_only } = req.query;
+    if (parent_only === "true") {
+      query = query.is("parent_asset_id", null);
+    }
+
     const { data, error } = await query;
 
     if (error) {

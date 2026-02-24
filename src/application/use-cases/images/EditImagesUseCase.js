@@ -16,7 +16,7 @@ class EditImagesUseCase {
 
   async execute(rawRequestData) {
     const request = new ImageEditorRequest(rawRequestData);
-    const { baseImageURL, maskImageURL, prompt, numberOfImages, config, brandId, campaignId, style } = request;
+    const { baseImageURL, maskImageURL, referenceImageURLs, prompt, numberOfImages, config, brandId, campaignId, style, assetId } = request;
 
     let retrievedContext = null;
     if (this.contextRetriever) {
@@ -42,15 +42,29 @@ class EditImagesUseCase {
 
     const buffers = await this.aiPort.editImage(
       baseImageURL,
+      referenceImageURLs,
       maskImageURL,
       enhancedPrompt,
       config
     );
 
+    // Resolver parent_asset_id: siempre apuntar al asset raíz original
+    let rootParentId = null;
+    if (assetId && this.campaignAssetRepository) {
+      try {
+        const parentAsset = await this.campaignAssetRepository.findById(assetId);
+        // Si el asset ya tiene un parent, usar ese (es el raíz).
+        // Si no tiene parent, él mismo es el raíz.
+        rootParentId = parentAsset?.parent_asset_id || assetId;
+      } catch (error) {
+        console.error("Error resolviendo parent asset:", error);
+        rootParentId = assetId; // fallback: usar el assetId directo
+      }
+    }
+
     const storageResult = await Promise.all(
       buffers.map(async (imageObj) => {
         const { buffer } = imageObj;
-        // Reusing request object for storage context as it has brandId and campaignId
         const uploaded = await this.storagePort.uploadFile(
           buffer,
           buffer,
@@ -69,7 +83,7 @@ class EditImagesUseCase {
               storage_location: uploaded.status === "gcp" ? "temp" : "temp",
               is_approved: false,
               is_saved: false,
-              parent_asset_id: null
+              parent_asset_id: rootParentId
             });
           } catch (error) {
             console.error("Error al guardar metadatos del asset:", error);

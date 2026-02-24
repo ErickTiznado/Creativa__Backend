@@ -97,7 +97,8 @@ class EditImageController {
         brandId,
         campaignId,
         style,
-        context
+        context,
+        assetId: assetId || null
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status, parent_asset_id }]
