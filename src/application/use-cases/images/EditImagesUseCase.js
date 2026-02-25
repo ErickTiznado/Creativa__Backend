@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import ImageEditorRequest from "../../../domain/entities/ImageEditorRequest.js";
 import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
 
@@ -28,7 +29,6 @@ class EditImagesUseCase {
       }
     }
 
-    // 1. Construir Prompt Optimizado (Hybrid Approach)
     const enhancedPrompt = PromptBuilder.build({
       brief: prompt,
       context: retrievedContext,
@@ -48,26 +48,29 @@ class EditImagesUseCase {
       config
     );
 
-    // Resolver parent_asset_id: siempre apuntar al asset raíz original
     let rootParentId = null;
     if (assetId && this.campaignAssetRepository) {
       try {
         const parentAsset = await this.campaignAssetRepository.findById(assetId);
-        // Si el asset ya tiene un parent, usar ese (es el raíz).
-        // Si no tiene parent, él mismo es el raíz.
         rootParentId = parentAsset?.parent_asset_id || assetId;
       } catch (error) {
         console.error("Error resolviendo parent asset:", error);
-        rootParentId = assetId; // fallback: usar el assetId directo
+        rootParentId = assetId;
       }
     }
 
     const storageResult = await Promise.all(
       buffers.map(async (imageObj) => {
         const { buffer } = imageObj;
+
+        const thumbnailBuffer = await sharp(buffer)
+          .resize({ width: 400, withoutEnlargement: true })
+          .png()
+          .toBuffer();
+
         const uploaded = await this.storagePort.uploadFile(
           buffer,
-          buffer,
+          thumbnailBuffer,
           request,
         );
 
@@ -80,7 +83,7 @@ class EditImagesUseCase {
               prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
-              storage_location: uploaded.status === "gcp" ? "temp" : "temp",
+              storage_location: "gcp",
               is_approved: false,
               is_saved: false,
               parent_asset_id: rootParentId

@@ -41,16 +41,18 @@ class GeminiImageAdapter extends ImageGeneratorPort {
   }
 
   #extractDataFromResponse(response) {
+    if (!response?.candidates?.length) {
+      throw new Error('Gemini no devolvió candidatos en la respuesta.');
+    }
+
     for (const part of response.candidates[0].content.parts) {
-      if (part.text) {
-        throw new Error("Text response received");
-      } else if (part.inlineData) {
-        const imageData = part.inlineData.data;
-        const buffer = Buffer.from(imageData, "base64");
-        const mimeType = part.inlineData.mimeType;
-        return { buffer, mimeType };
+      if (part.inlineData) {
+        const buffer = Buffer.from(part.inlineData.data, "base64");
+        return { buffer, mimeType: part.inlineData.mimeType };
       }
     }
+
+    throw new Error('Gemini no devolvió datos de imagen. Puede que el prompt haya sido rechazado por políticas de seguridad.');
   }
 
   async generateImages(prompt, config, numberOfImages) {

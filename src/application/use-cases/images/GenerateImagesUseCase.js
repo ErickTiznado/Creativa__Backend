@@ -1,12 +1,6 @@
+import sharp from 'sharp';
 import ImageGeneratorRequest from "../../../domain/entities/ImageGeneratorRequest.js";
 import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Magia para tener rutas absolutas seguras en ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 class GenerateImagesUseCase {
   constructor(
@@ -26,10 +20,7 @@ class GenerateImagesUseCase {
   async execute(rawRequestData) {
     const request = new ImageGeneratorRequest(rawRequestData);
 
-    // Extraemos todo de la request
     const { prompt, numberOfImages, config, brandId, campaignId, style } = request;
-
-    // BLINDAJE EXTRA: Lo sacamos de rawRequestData por si la entidad falló
     const methodToUse = request.methodToUse || rawRequestData.methodToUse || 'sharp';
 
     let retrievedContext = null;
@@ -47,7 +38,6 @@ class GenerateImagesUseCase {
       }
     }
 
-    // 1. Construir Prompt Optimizado
     let enhancedPrompt = PromptBuilder.build({
       brief: prompt,
       context: retrievedContext,
@@ -55,11 +45,8 @@ class GenerateImagesUseCase {
       dimensions: config?.aspectRatio || "16:9",
     });
 
-    // --- LÓGICA MÉTODO B: IA GENERATIVA ---
     if (methodToUse === 'ai') {
-      // Instrucciones exigidas por el manual de marca
       const brandInstructions = `\n\nINSTRUCCIONES DE IDENTIDAD DE MARCA: Inserta obligatoriamente el logo de "creativa STUDIOS" en la esquina superior izquierda respetando su zona de protección. No deformes el logo ni quites elementos. Usa estrictamente uno de estos tres colores según el contraste del fondo, prohibido cambiar a otro color: Rojo (#da0d15), Negro (#000000) o Blanco (#ffffff).`;
-
       enhancedPrompt = `${enhancedPrompt}${brandInstructions}`;
     }
 
@@ -77,28 +64,19 @@ class GenerateImagesUseCase {
       buffers.map(async (imageObj) => {
         let finalBuffer = imageObj.buffer;
 
-        // --- LÓGICA MÉTODO A: PEGADO CON SHARP (REFACTORIZADA PARA SER DINÁMICA) ---
         if (methodToUse === 'sharp' && this.imageProcessingPort) {
           console.log("Aplicando marca de agua dinámica con Sharp...");
-
-          // Cargamos AMBOS logos desde src/references/ usando la ruta absoluta segura
-          const redLogoPath = path.join(__dirname, '../../../references/logo_creativa_red.png');
-          const whiteLogoPath = path.join(__dirname, '../../../references/logo_creativa_white.png');
-
-          const logoBufferRed = fs.readFileSync(redLogoPath);
-          const logoBufferWhite = fs.readFileSync(whiteLogoPath);
-
-          // Le pasamos la imagen base y LOS DOS logos al adaptador
-          finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(
-            finalBuffer,
-            logoBufferWhite,
-            logoBufferRed
-          );
+          finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(finalBuffer);
         }
+
+        const thumbnailBuffer = await sharp(finalBuffer)
+          .resize({ width: 400, withoutEnlargement: true })
+          .png()
+          .toBuffer();
 
         const uploaded = await this.storagePort.uploadFile(
           finalBuffer,
-          finalBuffer,
+          thumbnailBuffer,
           request,
         );
 
@@ -111,7 +89,7 @@ class GenerateImagesUseCase {
               prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
-              storage_location: uploaded.status === "gcp" ? "temp" : "temp",
+              storage_location: "gcp",
               is_approved: false,
               is_saved: false,
             });

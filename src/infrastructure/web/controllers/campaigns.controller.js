@@ -1,12 +1,13 @@
 import VertexVectorizationService from '../../ai/VertexVectorizationService.js';
 
 class CampaignController {
-    constructor(registerCampaignUseCase, updateCampaignStatusUseCase, getCampaignsByDesignerUseCase, getCampaignDetailsUseCase, getAllCampaignsUseCase) {
+    constructor(registerCampaignUseCase, updateCampaignStatusUseCase, getCampaignsByDesignerUseCase, getCampaignDetailsUseCase, getAllCampaignsUseCase, notificationService = null) {
         this.registerCampaignUseCase = registerCampaignUseCase;
         this.updateCampaignStatusUseCase = updateCampaignStatusUseCase;
         this.getCampaignsByDesignerUseCase = getCampaignsByDesignerUseCase;
         this.getCampaignDetailsUseCase = getCampaignDetailsUseCase;
         this.getAllCampaignsUseCase = getAllCampaignsUseCase;
+        this.notificationService = notificationService;
 
         // 1. Instanciamos tu servicio de IA
         this.vectorizationService = new VertexVectorizationService();
@@ -36,6 +37,13 @@ class CampaignController {
                 this.vectorizationService.vectorizeCampaign(newCampaignId, data).catch(err => {
                     console.error("[CampaignController] ❌ Error en la vectorización silenciosa:", err);
                 });
+            }
+
+            if (designer_id && newCampaignId && this.notificationService) {
+                console.log(`\n[CampaignController] Enviando push notification al diseñador: [${designer_id}]`);
+                this.notificationService
+                    .notifyDesignerNewCampaign(designer_id, newCampaignId, data)
+                    .catch(err => console.error('[CampaignController] Error en la notificación push silenciosa:', err));
             }
 
             return res.status(201).json(result);
