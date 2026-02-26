@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp from "sharp";
 import ImageGeneratorRequest from "../../../domain/entities/ImageGeneratorRequest.js";
 import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
 
@@ -8,7 +8,7 @@ class GenerateImagesUseCase {
     storagePort,
     campaignAssetRepository,
     contextRetriever,
-    imageProcessingPort
+    imageProcessingPort,
   ) {
     this.aiPort = aiPort;
     this.storagePort = storagePort;
@@ -20,14 +20,21 @@ class GenerateImagesUseCase {
   async execute(rawRequestData) {
     const request = new ImageGeneratorRequest(rawRequestData);
 
-    const { prompt, numberOfImages, config, brandId, campaignId, style } = request;
-    const methodToUse = request.methodToUse || rawRequestData.methodToUse || 'sharp';
+    const { prompt, numberOfImages, config, brandId, campaignId, style } =
+      request;
+    const methodToUse =
+      request.methodToUse || rawRequestData.methodToUse || "sharp";
 
     let retrievedContext = null;
     if (this.contextRetriever) {
       try {
-        console.log(`Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`);
-        retrievedContext = await this.contextRetriever.getContext(brandId, campaignId);
+        console.log(
+          `Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`,
+        );
+        retrievedContext = await this.contextRetriever.getContext(
+          brandId,
+          campaignId,
+        );
         if (retrievedContext) {
           console.log("Contexto obtenido exitosamente.");
         } else {
@@ -42,10 +49,10 @@ class GenerateImagesUseCase {
       brief: prompt,
       context: retrievedContext,
       style: style,
-      dimensions: config?.aspectRatio || "16:9",
+      mode: "generate",
     });
 
-    if (methodToUse === 'ai') {
+    if (methodToUse === "ai") {
       const brandInstructions = `\n\nINSTRUCCIONES DE IDENTIDAD DE MARCA: Inserta obligatoriamente el logo de "creativa STUDIOS" en la esquina superior izquierda respetando su zona de protección. No deformes el logo ni quites elementos. Usa estrictamente uno de estos tres colores según el contraste del fondo, prohibido cambiar a otro color: Rojo (#da0d15), Negro (#000000) o Blanco (#ffffff).`;
       enhancedPrompt = `${enhancedPrompt}${brandInstructions}`;
     }
@@ -64,9 +71,12 @@ class GenerateImagesUseCase {
       buffers.map(async (imageObj) => {
         let finalBuffer = imageObj.buffer;
 
-        if (methodToUse === 'sharp' && this.imageProcessingPort) {
+        if (methodToUse === "sharp" && this.imageProcessingPort) {
           console.log("Aplicando marca de agua dinámica con Sharp...");
-          finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(finalBuffer);
+          finalBuffer =
+            await this.imageProcessingPort.applyBrandWatermarkDynamic(
+              finalBuffer,
+            );
         }
 
         const thumbnailBuffer = await sharp(finalBuffer)
@@ -89,7 +99,7 @@ class GenerateImagesUseCase {
               prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
-              storage_location: "gcp",
+              storage_location: "temp",
               is_approved: false,
               is_saved: false,
             });

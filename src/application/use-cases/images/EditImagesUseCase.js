@@ -1,14 +1,9 @@
-import sharp from 'sharp';
+import sharp from "sharp";
 import ImageEditorRequest from "../../../domain/entities/ImageEditorRequest.js";
 import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
 
 class EditImagesUseCase {
-  constructor(
-    aiPort,
-    storagePort,
-    campaignAssetRepository,
-    contextRetriever,
-  ) {
+  constructor(aiPort, storagePort, campaignAssetRepository, contextRetriever) {
     this.aiPort = aiPort;
     this.storagePort = storagePort;
     this.campaignAssetRepository = campaignAssetRepository;
@@ -17,13 +12,29 @@ class EditImagesUseCase {
 
   async execute(rawRequestData) {
     const request = new ImageEditorRequest(rawRequestData);
-    const { baseImageURL, maskImageURL, referenceImageURLs, prompt, numberOfImages, config, brandId, campaignId, style, assetId } = request;
+    const {
+      baseImageURL,
+      maskImageURL,
+      referenceImageURLs,
+      prompt,
+      numberOfImages,
+      config,
+      brandId,
+      campaignId,
+      style,
+      assetId,
+    } = request;
 
     let retrievedContext = null;
     if (this.contextRetriever) {
       try {
-        console.log(`Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`);
-        retrievedContext = await this.contextRetriever.getContext(brandId, campaignId);
+        console.log(
+          `Obteniendo contexto para Marca: ${brandId}, Campaña: ${campaignId}`,
+        );
+        retrievedContext = await this.contextRetriever.getContext(
+          brandId,
+          campaignId,
+        );
       } catch (error) {
         console.error("Error al obtener contexto:", error);
       }
@@ -33,7 +44,8 @@ class EditImagesUseCase {
       brief: prompt,
       context: retrievedContext,
       style: style,
-      dimensions: config?.aspectRatio || "16:9",
+      mode: "edit",
+      hasMask: !!maskImageURL,
     });
 
     console.log("--- EDITANDO CON PROMPT MEJORADO ---");
@@ -45,13 +57,14 @@ class EditImagesUseCase {
       referenceImageURLs,
       maskImageURL,
       enhancedPrompt,
-      config
+      config,
     );
 
     let rootParentId = null;
     if (assetId && this.campaignAssetRepository) {
       try {
-        const parentAsset = await this.campaignAssetRepository.findById(assetId);
+        const parentAsset =
+          await this.campaignAssetRepository.findById(assetId);
         rootParentId = parentAsset?.parent_asset_id || assetId;
       } catch (error) {
         console.error("Error resolviendo parent asset:", error);
@@ -83,10 +96,10 @@ class EditImagesUseCase {
               prompt_used: enhancedPrompt,
               campaign_id: campaignId,
               status: "draft",
-              storage_location: "gcp",
+              storage_location: "temp",
               is_approved: false,
               is_saved: false,
-              parent_asset_id: rootParentId
+              parent_asset_id: rootParentId,
             });
           } catch (error) {
             console.error("Error al guardar metadatos del asset:", error);
