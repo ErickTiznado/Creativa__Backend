@@ -1,27 +1,31 @@
 // src/domain/services/prompt/PromptBuilder.js
-import { SYSTEM_INSTRUCTIONS, STYLE_DEFINITIONS, BRAND_ENFORCEMENT } from "./promptConstants.js";
+import {
+  SYSTEM_INSTRUCTIONS,
+  STYLE_DEFINITIONS,
+  BRAND_ENFORCEMENT,
+  QUALITY_BOILERPLATE_BY_STYLE,
+  QUALITY_BOILERPLATE_UNIVERSAL,
+  EDIT_MODE_DIRECTIVES,
+} from "./promptConstants.js";
 import { BrandSanitizer } from "./BrandSanitizer.js";
 
 /**
  * Servicio encargado de ensamblar el prompt final.
  * Fusión de System Instructions + Contexto RAG + Brief Usuario + Modificadores.
  * Implementación optimizada con Jerarquía de Atención y Sanitización.
- * Enfoque "Híbrido" -> Prepara el lienzo para el estampado posterior del logo.
+ * Soporta dos modos: 'generate' (creación desde cero) y 'edit' (modificación quirúrgica).
  */
 class PromptBuilder {
-  constructor() {
-    this.qualityBoilerplate = SYSTEM_INSTRUCTIONS.BASE;
-  }
-
   /**
    * Construye el prompt final optimizado.
    * @param {Object} params
    * @param {string} params.brief - Brief enriquecido (Ancla)
    * @param {Object} params.context - Contexto RAG crudo
    * @param {string} params.style - Estilo visual
-   * @param {string} params.dimensions - Dimensiones
+   * @param {string} [params.mode='generate'] - Modo de operación: 'generate' o 'edit'
+   * @param {boolean} [params.hasMask=false] - Si hay máscara de inpainting (solo relevante en modo 'edit')
    */
-  build({ brief, context, style, dimensions }) {
+  build({ brief, context, style, mode = 'generate', hasMask = false }) {
     // A. SANITIZACIÓN (El Filtro Quirúrgico de RAG)
     const cleanBrand = BrandSanitizer.clean(context);
 
@@ -36,87 +40,75 @@ class PromptBuilder {
     parts.push(brief);
 
     // ---------------------------------------------------------
-    // CAPA 1.5: DESCRIPCIÓN DE ESTILO PERSONALIZADA
+    // CAPA 1.1: DIRECTIVAS DE EDICIÓN (solo en modo edit)
     // ---------------------------------------------------------
-    const finalStyleDescription = predefinedStyleDescription;
-
-    if (finalStyleDescription) {
-      parts.push(`OVERALL VISUAL STYLE & AESTHETIC DIRECTIVE:\n- The following stylistic description must dictate the mood, colors, and overall visual delivery of the image:\n"${finalStyleDescription}"\n- Ensure the image strictly adheres to this aesthetic.`);
+    if (mode === 'edit') {
+      parts.push(EDIT_MODE_DIRECTIVES.PRESERVATION_LAYER);
+      parts.push(
+        hasMask
+          ? EDIT_MODE_DIRECTIVES.INPAINTING_SCOPE_LAYER
+          : EDIT_MODE_DIRECTIVES.SEMANTIC_EDIT_SCOPE_LAYER
+      );
+      parts.push(EDIT_MODE_DIRECTIVES.OUTPUT_INTEGRITY_LAYER);
     }
 
     // ---------------------------------------------------------
-    // CAPA 2: REGLAS DE MARCA (Forzadas - NUEVO)
+    // CAPA 1.5: DESCRIPCIÓN DE ESTILO PERSONALIZADA
     // ---------------------------------------------------------
-    parts.push(BRAND_ENFORCEMENT.ATMOSPHERE_RULE);
-    parts.push(BRAND_ENFORCEMENT.COMPOSITION_RULE);
+    if (predefinedStyleDescription) {
+      parts.push(`OVERALL VISUAL STYLE & AESTHETIC DIRECTIVE:\n- The following stylistic description must dictate the mood, colors, and overall visual delivery of the image:\n"${predefinedStyleDescription}"\n- Ensure the image strictly adheres to this aesthetic.`);
+    }
+
+    // ---------------------------------------------------------
+    // CAPA 2: REGLAS DE MARCA (solo si hay contexto de marca)
+    // ---------------------------------------------------------
+    if (cleanBrand) {
+      parts.push(BRAND_ENFORCEMENT.ATMOSPHERE_RULE);
+      parts.push(BRAND_ENFORCEMENT.COMPOSITION_RULE);
+    }
 
     // ---------------------------------------------------------
     // CAPA 3: CONTEXTO DE MARCA (Sanitizado)
     // ---------------------------------------------------------
     if (cleanBrand) {
-      // Inyectamos colores solo si existen (como acentos secundarios)
       if (cleanBrand.colors && cleanBrand.colors.length > 0) {
         parts.push(`Secondary Palette Accents: ${cleanBrand.colors.join(", ")}`);
       }
-      // Forzamos entorno si el sanitizer lo dicta
       if (cleanBrand.environment) {
         parts.push(`Background/Environment: ${cleanBrand.environment}`);
       }
     }
 
     // ---------------------------------------------------------
-    // CAPA 4: CALIDAD Y TÉCNICA (Boilerplate)
+    // CAPA 4: CALIDAD Y TÉCNICA (específica por estilo)
     // ---------------------------------------------------------
-    parts.push(this.qualityBoilerplate);
-
-    if (dimensions) {
-      parts.push(`Aspect Ratio: ${dimensions}`);
-    }
+    const normalizedStyle = style ? style.toLowerCase().replace(/\s+/g, '-') : null;
+    const boilerplate = QUALITY_BOILERPLATE_BY_STYLE[normalizedStyle] || QUALITY_BOILERPLATE_UNIVERSAL;
+    parts.push(boilerplate);
 
     // ---------------------------------------------------------
-    // CAPA 5: NEGATIVOS (Dinámicos - Realism Shield + Text Shield)
+    // CAPA 5: NEGATIVOS (Dinámicos - Realism Shield)
     // ---------------------------------------------------------
-    let negatives = SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT || [];
+    let negatives = [...SYSTEM_INSTRUCTIONS.NEGATIVE_PROMPT_DEFAULT];
 
-    // CRÍTICO: Prohibimos "texto" y "logos" para que la IA no intente dibujarlos mal.
-    const textShield = [
-      "text", "typography", "letters", "words", "watermark",
-      "signature", "logo", "brand name", "writing", "font",
-      "blurred text", "warped letters", "double exposure"
-    ];
-    negatives = [...negatives, ...textShield];
-
-    // Si el sanitizer detectó "Tech", activamos el escudo Anti-Holograma
     if (cleanBrand && cleanBrand.requiresRealismShield) {
-      const shieldNegatives = [
-        "holograms",
-        "futuristic ui",
-        "floating data",
-        "blue glow",
-        "cyborgs",
-        "sci-fi elements",
-        "flying numbers",
-        "matrix code",
-        "virtual reality goggles",
-        "circuits on face",
-      ];
-      negatives = [...negatives, ...shieldNegatives];
+      negatives.push(
+        "holograms", "futuristic ui", "floating data", "blue glow", "cyborgs",
+        "sci-fi elements", "flying numbers", "matrix code", "virtual reality goggles", "circuits on face"
+      );
     }
 
-    // Unir negativos únicos
     const uniqueNegatives = [...new Set(negatives)].join(", ");
 
-    // Retorno: Prompt Positivo separada por comas + Negativos
     return `${parts.join("\n")}\n\n--no ${uniqueNegatives}`;
   }
 
   /**
-   * Extrae componentes de estilo (Description)
+   * Extrae la descripción de estilo.
    */
   getStyleComponents(style) {
     if (!style) return "";
 
-    // Normalize string to match keys in STYLE_DEFINITIONS (e.g., "oil painting" -> "oil-painting")
     const normalizedStyle = style.toLowerCase().replace(/\s+/g, '-');
     const def = STYLE_DEFINITIONS[normalizedStyle] || STYLE_DEFINITIONS[style];
 
@@ -124,10 +116,6 @@ class PromptBuilder {
       return def.description || "";
     }
     return style || "";
-  }
-
-  static applyBrandIdentity(originalPrompt) {
-    return `${originalPrompt}\n\nINSTRUCCIONES DE MARCA: Inserta el logo de "creativa STUDIOS" en la esquina superior izquierda. No deformes el logo. Usa estrictamente los colores Rojo (#da0d15) [cite: 53], Negro (#000000) [cite: 52] o Blanco (#ffffff) [cite: 54] según el contraste.`;
   }
 }
 
