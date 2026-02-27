@@ -17,7 +17,8 @@ export class SupabaseUserRepository extends UserRepositoryPort {
             email: data.email, // Ojo: A veces el email no está en profile, sino en auth.users
             firstName: data.first_name,
             lastName: data.last_name,
-            role: data.role
+            role: data.role,
+            is_active: data.is_active
         };
     }
 

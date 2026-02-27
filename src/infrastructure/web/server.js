@@ -11,6 +11,7 @@ import campaignRoutes from "./routes/campaigns.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import notificationRoutes from "./routes/notifications.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 // Cargar variables de entorno
 dotenv.config();
@@ -42,6 +43,7 @@ app.use("/campaigns", campaignRoutes);
 app.use("/profile", profileRoutes);
 app.use('/ai', chatRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/admin', adminRoutes);
 
 
 // Manejo de Errores Global

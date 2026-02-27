@@ -17,7 +17,7 @@ const router = Router();
 const authAdapter = new SupabaseAuthAdapter();
 const userRepo = new SupabaseUserRepository();
 
-const loginUseCase = new LoginUseCase(authAdapter);
+const loginUseCase = new LoginUseCase(authAdapter, userRepo);
 const registerUseCase = new RegisterUseCase(authAdapter);
 const getProfileUseCase = new GetProfileUseCase(userRepo);
 const updateProfileUseCase = new UpdateProfileUseCase(userRepo);
