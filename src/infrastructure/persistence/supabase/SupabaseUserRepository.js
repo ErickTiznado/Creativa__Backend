@@ -4,17 +4,19 @@ import supabase from './supabaseClient.js';
 export class SupabaseUserRepository extends UserRepositoryPort {
     async findById(userId) {
         const { data, error } = await supabase
-            .from('profile') // Tabla en singular
+            .from('profile')
             .select('*')
             .eq('id', userId)
             .single();
 
         if (error) throw new Error('Usuario no encontrado');
 
-        // Mapeamos los datos de la BD a un objeto más limpio para la app
+        // Obtener email desde auth.users (no vive en la tabla profile)
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(userId);
+
         return {
             id: data.id,
-            email: data.email, // Ojo: A veces el email no está en profile, sino en auth.users
+            email: authUser?.email || null,
             firstName: data.first_name,
             lastName: data.last_name,
             role: data.role,

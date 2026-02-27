@@ -4,13 +4,26 @@ import supabase from './supabaseClient.js';
 export class SupabaseAdminUserRepository extends AdminUserRepositoryPort {
 
     async listUsers() {
-        const { data, error } = await supabase
+        // 1. Obtener perfiles de la tabla profile
+        const { data: profiles, error } = await supabase
             .from('profile')
             .select('*')
             .order('created_at', { ascending: false });
 
         if (error) throw new Error(error.message);
-        return data.map(this.#mapProfile);
+
+        // 2. Obtener usuarios de auth para conseguir los emails
+        const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
+        if (authError) throw new Error(authError.message);
+
+        // 3. Crear un mapa de id -> email desde auth.users
+        const emailMap = {};
+        for (const authUser of authUsers) {
+            emailMap[authUser.id] = authUser.email;
+        }
+
+        // 4. Merge: usar el email de auth.users para cada perfil
+        return profiles.map(profile => this.#mapProfile(profile, emailMap[profile.id]));
     }
 
     async createUser({ email, password, firstName, lastName, role }) {
@@ -24,12 +37,11 @@ export class SupabaseAdminUserRepository extends AdminUserRepositoryPort {
 
         if (authError) throw new Error(authError.message);
 
-        // Intentar insertar el perfil manualmente (por si no hay trigger automático)
+        // Insertar el perfil SIN email (el email vive en auth.users)
         const { data: profileData, error: profileError } = await supabase
             .from('profile')
             .insert({
                 id: authData.user.id,
-                email,
                 first_name: firstName,
                 last_name: lastName,
                 role,
@@ -45,11 +57,11 @@ export class SupabaseAdminUserRepository extends AdminUserRepositoryPort {
                 .select('*')
                 .eq('id', authData.user.id)
                 .single();
-            return this.#mapProfile(existing);
+            return this.#mapProfile(existing, authData.user.email);
         }
 
         if (profileError) throw new Error(profileError.message);
-        return this.#mapProfile(profileData);
+        return this.#mapProfile(profileData, authData.user.email);
     }
 
     async updateUser(userId, { firstName, lastName, role }) {
@@ -66,7 +78,10 @@ export class SupabaseAdminUserRepository extends AdminUserRepositoryPort {
             .single();
 
         if (error) throw new Error(error.message);
-        return this.#mapProfile(data);
+
+        // Obtener email desde auth.users
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(userId);
+        return this.#mapProfile(data, authUser?.email);
     }
 
     async deleteUser(userId) {
@@ -89,13 +104,17 @@ export class SupabaseAdminUserRepository extends AdminUserRepositoryPort {
             .single();
 
         if (error) throw new Error(error.message);
-        return this.#mapProfile(data);
+
+        // Obtener email desde auth.users
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(userId);
+        return this.#mapProfile(data, authUser?.email);
     }
 
-    #mapProfile(data) {
+    // email viene de auth.users, no de la tabla profile
+    #mapProfile(data, email = null) {
         return {
             id: data.id,
-            email: data.email,
+            email: email || data.email || null,
             firstName: data.first_name,
             lastName: data.last_name,
             role: data.role,

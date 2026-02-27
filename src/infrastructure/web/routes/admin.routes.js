@@ -2,6 +2,7 @@ import { Router } from 'express';
 // Adaptadores
 import { SupabaseAuthAdapter } from '../../persistence/supabase/SupabaseAuthAdapter.js';
 import { SupabaseAdminUserRepository } from '../../persistence/supabase/SupabaseAdminUserRepository.js';
+import { SupabaseUserRepository } from '../../persistence/supabase/SupabaseUserRepository.js';
 import { SupabaseRecoveryRequestRepository } from '../../persistence/supabase/SupabaseRecoveryRequestRepository.js';
 // Casos de Uso - Usuarios
 import { ListUsersUseCase } from '../../../application/use-cases/admin/users/ListUsersUseCase.js';
@@ -21,6 +22,7 @@ const router = Router();
 
 // ── Inyección de Dependencias ─────────────────────────────────────────────────
 const authAdapter = new SupabaseAuthAdapter();
+const userRepo = new SupabaseUserRepository();
 const adminUserRepo = new SupabaseAdminUserRepository();
 const recoveryRequestRepo = new SupabaseRecoveryRequestRepository();
 
@@ -45,8 +47,8 @@ const adminController = new AdminController(
     updateRequestStatusUseCase
 );
 
-// Guard para rutas de admin
-const adminGuard = [requireAuth(authAdapter), requireRole('admin')];
+// Guard para rutas de admin (busca el rol en la tabla profile)
+const adminGuard = [requireAuth(authAdapter), requireRole(userRepo, 'marketing')];
 
 // ── Rutas de Usuarios (protegidas) ────────────────────────────────────────────
 router.get('/users', adminGuard, adminController.listUsers);
