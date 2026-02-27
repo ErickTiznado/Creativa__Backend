@@ -28,6 +28,9 @@ export const PROMPT_CONFIG = {
     "oil-painting",
     "cyberpunk",
     "minimalist",
+    "photorealistic",
+    "flat-illustration",
+    "vintage",
   ],
 };
 
@@ -51,12 +54,66 @@ export const STYLE_DEFINITIONS = {
   minimalist: {
     description: "The visual style must adhere to strict minimalism. It relies heavily on abundant, clean negative space, simple and bold geometric shapes, a highly restricted but elegant color palette, flat design aesthetics, and an overall modern, uncluttered composition that draws focus entirely to the subject.",
   },
+  photorealistic: {
+    description: "The visual style must be indistinguishable from a professional commercial photograph taken with a high-end DSLR or medium format camera. Key features include razor-sharp focus on the subject, natural bokeh, authentic studio or location lighting, true-to-life textures, and no digital art processing.",
+  },
+  "flat-illustration": {
+    description: "The visual style must be a professional flat design illustration. Key features include bold, clean geometric shapes, a limited but harmonious color palette, absence of shadows or gradients (or only subtle ones), and a modern, graphic design aesthetic suited for editorial or marketing use.",
+  },
+  vintage: {
+    description: "The visual style must evoke authentic vintage or retro photography from the 1960s–1980s. Key features include warm, slightly faded analog tones, subtle film grain and light leaks, slightly desaturated highlights, a classic compositional framing, and an overall timeless, nostalgic mood.",
+  },
+};
+
+export const QUALITY_BOILERPLATE_UNIVERSAL = `Award-winning composition, extremely detailed, professional visuals, high resolution.`;
+
+export const QUALITY_BOILERPLATE_BY_STYLE = {
+  cinematic:           `Award-winning cinematic composition, anamorphic lens, film grain, professional color grading, 4K.`,
+  anime:               `High-quality anime illustration, 4K resolution, vibrant cel-shaded rendering, painterly backgrounds.`,
+  "3d-render":         `Cutting-edge 3D render, Octane/UE5 quality, ray-traced global illumination, hyper-realistic materials, 8K.`,
+  "oil-painting":      `Classical oil painting quality, rich pigment, visible brushstrokes, canvas texture, fine art masterpiece.`,
+  cyberpunk:           `Gritty cyberpunk aesthetic, ultra-detailed neon lighting, high contrast, cinematic composition, 4K.`,
+  minimalist:          `Award-winning minimal composition, crisp clarity, elegant negative space, professional graphic design quality.`,
+  photorealistic:      `Award-winning commercial photography, hyperrealistic, 8K raw photo, professional studio lighting, razor-sharp details.`,
+  "flat-illustration": `Professional flat design illustration, bold geometric shapes, clean vector-like quality, modern graphic design.`,
+  vintage:             `Authentic vintage photography aesthetic, warm analog tones, subtle film grain, retro color palette, timeless composition.`,
+};
+
+export const EDIT_MODE_DIRECTIVES = {
+  PRESERVATION_LAYER: `
+    EDIT OPERATION — PRESERVATION MANDATE:
+    - This is an EDIT of an existing image, NOT a new creation.
+    - PRESERVE the overall composition, lighting direction, and spatial relationships between all subjects.
+    - Do NOT recompose or restructure the scene.
+    - Do NOT alter the color temperature, white balance, or tonal range of unchanged areas.
+    - Do NOT add new subjects, objects, or background elements unless explicitly requested.
+  `,
+  // Used when NO mask is provided — changes are guided semantically by the brief
+  SEMANTIC_EDIT_SCOPE_LAYER: `
+    SEMANTIC CHANGE SCOPE (NO MASK):
+    - Apply ONLY the modifications described in the user brief.
+    - Identify the target elements semantically from the brief and treat everything else as READ-ONLY.
+    - Do NOT alter untargeted subjects, background areas, colors, or lighting that are not described in the brief.
+    - Changes may span the full image surface but only where semantically implied by the requested modification.
+  `,
+  // Used when a mask IS provided — pixel-level confinement to the masked region
+  INPAINTING_SCOPE_LAYER: `
+    INPAINTING SCOPE (MASK PROVIDED):
+    - A mask defines the EXACT pixel region authorized for modification.
+    - ALL changes MUST be strictly confined within the masked region. Zero tolerance for edits outside it.
+    - Pixels outside the masked region MUST remain pixel-perfect identical to the original — do NOT alter them under any circumstance.
+    - At the mask boundary: blend the edited region seamlessly by matching the surrounding grain, sharpness, color temperature, and lighting of the original image.
+    - Do NOT introduce new subjects, objects, or compositional elements outside the mask.
+  `,
+  OUTPUT_INTEGRITY_LAYER: `
+    OUTPUT INTEGRITY:
+    - The output MUST be recognizably derived from the input image.
+    - Maximum allowable change is ~30% of the total pixel area unless the brief says "complete restyle" or "full transformation".
+    - Prioritize faithful execution of the stated change over creative interpretation.
+  `,
 };
 
 export const SYSTEM_INSTRUCTIONS = {
-  // Instrucción base: Quality Boilerplate (Adiós a la personalidad)
-  BASE: `Award-winning composition, commercial photography, extremely detailed, 8k, raw photo, hyperrealistic, professional visuals.`,
-
   NEGATIVE_PROMPT_DEFAULT: [
     "blurry",
     "low quality",
@@ -83,11 +140,12 @@ export const SYSTEM_INSTRUCTIONS = {
     "numbers",
     "label",
     "signage",
-    // Domain Specific Negatives (Anti-Hologram/Sci-Fi Clichés for realistic ask)
-    "hologram",
-    "futuristic interface",
-    "floating elements",
-    "blue glow",
+    "font",
+    "blurred text",
+    "warped letters",
+    "double exposure",
+    "logo",
+    // Generic quality negatives
     "cgi",
     "fantasy",
     "flying objects",

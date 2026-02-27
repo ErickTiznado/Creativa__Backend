@@ -7,6 +7,9 @@ import GetCampaignsByDesignerUseCase from '../../../application/use-cases/campai
 import GetCampaignDetailsUseCase from '../../../application/use-cases/campaigns/GetCampaignDetailsUseCase.js';
 import GetAllCampaignsUseCase from '../../../application/use-cases/campaigns/GetAllCampaignsUseCase.js';
 import CampaignController from '../controllers/campaigns.controller.js';
+import SupabasePushSubscriptionRepository from '../../persistence/supabase/SupabasePushSubscriptionRepository.js';
+import WebPushAdapter from '../../external-services/push/WebPushAdapter.js';
+import NotificationService from '../../services/NotificationService.js';
 
 const router = Router();
 
@@ -29,8 +32,12 @@ const getCampaignDetailsUseCase = new GetCampaignDetailsUseCase(campaignReposito
 
 const getAllCampaignsUseCase = new GetAllCampaignsUseCase(campaignRepository);
 
-// 3. Instanciamos el controlador 
-const campaignController = new CampaignController(registerCampaignUseCase, updateCampaignStatusUseCase, getCampaignsByDesignerUseCase, getCampaignDetailsUseCase, getAllCampaignsUseCase);
+const pushSubscriptionRepository = new SupabasePushSubscriptionRepository();
+const pushNotificationAdapter    = new WebPushAdapter();
+const notificationService        = new NotificationService(pushSubscriptionRepository, pushNotificationAdapter);
+
+// 3. Instanciamos el controlador
+const campaignController = new CampaignController(registerCampaignUseCase, updateCampaignStatusUseCase, getCampaignsByDesignerUseCase, getCampaignDetailsUseCase, getAllCampaignsUseCase, notificationService);
 
 // 4. Definimos la ruta
 router.post('/registerCampaigns', campaignController.register.bind(campaignController));

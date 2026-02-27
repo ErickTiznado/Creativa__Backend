@@ -22,7 +22,7 @@ export class BrandSanitizer {
     // 3. Detectar "Triggers" de Alucinación y generar antídotos
     // Palabras clave que suelen confundir a los modelos generando Sci-Fi
     const techKeywords =
-      /tecnología|software|digital|oracle|java|sistemas|plataforma|ciberseguridad|datos/i;
+      /tecnología|software|digital|oracle|java|sistemas|plataforma|ciberseguridad|datos|technology|cybersecurity|\bdata\b|platform|cloud|artificial intelligence|machine learning|saas|fintech/i;
     const isTech = techKeywords.test(rawText);
 
     return {

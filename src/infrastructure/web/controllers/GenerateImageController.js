@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import GenerateImagesUseCase from "../../../application/use-cases/images/GenerateImagesUseCase.js";
 import GcpStorageAdapter from "../../external-services/storage/GcpStorageAdapter.js";
 import GeminiImageAdapter from "../../external-services/gemini/GeminiImageAdapter.js";
@@ -5,14 +8,16 @@ import genAiClient from "../../external-services/gemini/genAiClient.js";
 import gcsClient from "../../external-services/storage/gcsClient.js";
 import SupabaseCampaignAssetRepository from "../../persistence/supabase/SupabaseCampaignAssetRepository.js";
 import SupabaseContextRetriever from "../../persistence/supabase/SupabaseContextRetriever.js";
-import SharpImageAdapter from "../../external-services/image-processing/SharpImageAdapter.js"; // <-- NUEVO: Importamos el adaptador de Sharp
+import SharpImageAdapter from "../../external-services/image-processing/SharpImageAdapter.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class GenerateImageController {
   constructor() {
     this.genAiClient = genAiClient;
     this.gcsClient = gcsClient;
 
-    // Ensure we pass the bucket instance, not the storage client
     const bucketName = process.env.GCS_BUCKET_NAME;
     if (!bucketName) {
       console.warn("ADVERTENCIA: GCS_BUCKET_NAME no está configurado en las variables de entorno.");
@@ -23,14 +28,19 @@ class GenerateImageController {
     this.geminiImageAdapter = new GeminiImageAdapter(this.genAiClient);
     this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
     this.contextRetriever = new SupabaseContextRetriever();
-    this.sharpImageAdapter = new SharpImageAdapter(); // <-- NUEVO: Instanciamos el adaptador
+
+    const redLogoPath = path.join(__dirname, '../../../references/logo_creativa_red.png');
+    const whiteLogoPath = path.join(__dirname, '../../../references/logo_creativa_white.png');
+    const logoBufferRed = fs.readFileSync(redLogoPath);
+    const logoBufferWhite = fs.readFileSync(whiteLogoPath);
+    this.sharpImageAdapter = new SharpImageAdapter(logoBufferWhite, logoBufferRed);
 
     this.generateImagesUseCase = new GenerateImagesUseCase(
       this.geminiImageAdapter,
       this.gcpStorageAdapter,
       this.campaignAssetRepository,
       this.contextRetriever,
-      this.sharpImageAdapter // <-- NUEVO: Lo inyectamos al caso de uso
+      this.sharpImageAdapter
     );
     this.generateImage = this.generateImage.bind(this);
   }
@@ -40,10 +50,7 @@ class GenerateImageController {
       // NUEVO: Agregamos methodToUse, referenceImageURLs y referenceType a la desestructuración
       const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse, referenceImageURLs, referenceType } = req.body;
 
-      // Gemini SDK espera explícitamente el objeto "imageConfig" anidado dentro de "config"
-      const generationConfig = {
-        ...config,
-      };
+      const generationConfig = { ...config };
       if (imageConfig) {
         generationConfig.imageConfig = imageConfig;
       }
@@ -60,7 +67,6 @@ class GenerateImageController {
         referenceType
       });
 
-      // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status }]
       const assets = rawResults.map((item) => {
         const rawImgUrl = item.savedAsset?.img_url;
         let imgUrl = item.originalUrl;

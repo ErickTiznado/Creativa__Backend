@@ -1,5 +1,5 @@
 class ImageProcessingPort {
-    async applyBrandWatermark(baseImageBuffer, logoBuffer) {
+    async applyBrandWatermarkDynamic(baseImageBuffer) {
         throw new Error('ERR_METHOD_NOT_IMPLEMENTED');
     }
 }

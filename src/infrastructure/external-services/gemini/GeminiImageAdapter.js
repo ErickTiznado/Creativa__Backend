@@ -68,6 +68,8 @@ class GeminiImageAdapter extends ImageGeneratorPort {
         return { buffer, mimeType };
       }
     }
+
+    throw new Error('Gemini no devolvió datos de imagen. Puede que el prompt haya sido rechazado por políticas de seguridad.');
   }
 
   async generateImages(prompt, config, numberOfImages, referenceImageURLs = null, referenceType = 'style') {
