@@ -20,10 +20,11 @@ class GenerateImagesUseCase {
   async execute(rawRequestData) {
     const request = new ImageGeneratorRequest(rawRequestData);
 
-    const { prompt, numberOfImages, config, brandId, campaignId, style } =
-      request;
-    const methodToUse =
-      request.methodToUse || rawRequestData.methodToUse || "sharp";
+    // Extraemos todo de la request
+    const { prompt, numberOfImages, config, brandId, campaignId, style, referenceImageURLs, referenceType } = request;
+
+    // BLINDAJE EXTRA: Lo sacamos de rawRequestData por si la entidad falló
+    const methodToUse = request.methodToUse || rawRequestData.methodToUse || 'sharp';
 
     let retrievedContext = null;
     if (this.contextRetriever) {
@@ -65,6 +66,8 @@ class GenerateImagesUseCase {
       enhancedPrompt,
       config,
       numberOfImages,
+      referenceImageURLs,
+      referenceType
     );
 
     const storageResult = await Promise.all(

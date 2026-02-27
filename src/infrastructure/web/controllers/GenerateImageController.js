@@ -47,7 +47,8 @@ class GenerateImageController {
 
   async generateImage(req, res) {
     try {
-      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse } = req.body;
+      // NUEVO: Agregamos methodToUse, referenceImageURLs y referenceType a la desestructuración
+      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse, referenceImageURLs, referenceType } = req.body;
 
       const generationConfig = { ...config };
       if (imageConfig) {
@@ -61,7 +62,9 @@ class GenerateImageController {
         brandId,
         campaignId,
         style,
-        methodToUse
+        methodToUse, // <-- NUEVO: Se lo pasamos al payload del caso de uso
+        referenceImageURLs,
+        referenceType
       });
 
       const assets = rawResults.map((item) => {
