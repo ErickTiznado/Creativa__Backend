@@ -37,8 +37,8 @@ class GenerateImageController {
 
   async generateImage(req, res) {
     try {
-      // NUEVO: Agregamos methodToUse a la desestructuración
-      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse } = req.body;
+      // NUEVO: Agregamos methodToUse, referenceImageURLs y referenceType a la desestructuración
+      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse, referenceImageURLs, referenceType } = req.body;
 
       // Gemini SDK espera explícitamente el objeto "imageConfig" anidado dentro de "config"
       const generationConfig = {
@@ -55,7 +55,9 @@ class GenerateImageController {
         brandId,
         campaignId,
         style,
-        methodToUse // <-- NUEVO: Se lo pasamos al payload del caso de uso
+        methodToUse, // <-- NUEVO: Se lo pasamos al payload del caso de uso
+        referenceImageURLs,
+        referenceType
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status }]

@@ -27,7 +27,7 @@ class GenerateImagesUseCase {
     const request = new ImageGeneratorRequest(rawRequestData);
 
     // Extraemos todo de la request
-    const { prompt, numberOfImages, config, brandId, campaignId, style } = request;
+    const { prompt, numberOfImages, config, brandId, campaignId, style, referenceImageURLs, referenceType } = request;
 
     // BLINDAJE EXTRA: Lo sacamos de rawRequestData por si la entidad falló
     const methodToUse = request.methodToUse || rawRequestData.methodToUse || 'sharp';
@@ -71,6 +71,8 @@ class GenerateImagesUseCase {
       enhancedPrompt,
       config,
       numberOfImages,
+      referenceImageURLs,
+      referenceType
     );
 
     const storageResult = await Promise.all(

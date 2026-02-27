@@ -41,7 +41,24 @@ class GeminiImageAdapter extends ImageGeneratorPort {
   }
 
   #extractDataFromResponse(response) {
-    for (const part of response.candidates[0].content.parts) {
+    // Validate response structure
+    if (!response || !response.candidates || response.candidates.length === 0) {
+      console.error("Gemini API Error (No candidates):", JSON.stringify(response, null, 2));
+      throw new Error("Generación rechazada por Gemini (posible bloqueo de seguridad) o error interno de la API.");
+    }
+
+    const candidate = response.candidates[0];
+
+    // Validate content structure
+    if (!candidate.content || !candidate.content.parts || !Array.isArray(candidate.content.parts)) {
+      console.error("Gemini API Error (Invalid structure):", JSON.stringify(candidate, null, 2));
+      if (candidate.finishReason && candidate.finishReason !== "STOP") {
+        throw new Error(`Generación detenida por Gemini. Motivo: ${candidate.finishReason}`);
+      }
+      throw new Error("Gemini retornó una estructura inesperada (content.parts no es iterable).");
+    }
+
+    for (const part of candidate.content.parts) {
       if (part.text) {
         throw new Error("Text response received");
       } else if (part.inlineData) {
@@ -53,11 +70,36 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
   }
 
-  async generateImages(prompt, config, numberOfImages) {
+  async generateImages(prompt, config, numberOfImages, referenceImageURLs = null, referenceType = 'style') {
+    let requestContents = [{ text: prompt }];
+    let generationConfig = config || {};
+
+    // Si hay imágenes de referencia, las descargamos y preparamos
+    if (referenceImageURLs) {
+      const referenceImagesUrlsArray = Array.isArray(referenceImageURLs) ? referenceImageURLs : [referenceImageURLs];
+
+      const preparedImages = await Promise.all(
+        referenceImagesUrlsArray.filter(url => url).map(url => this.#downloadAndPrepareImage(url))
+      );
+
+      if (preparedImages.length > 0) {
+        // Adjuntamos el texto y las imágenes en el arreglo de contenidos
+
+        let contextualPrompt = prompt;
+        if (referenceType === 'subject') {
+          contextualPrompt = `[Instrucción estricta: Mantén el SUJETO o OBJETO de las imágenes proporcionadas exactamente igual en identidad, pero colócalo en esta nueva situación]\n\n${prompt}`;
+        } else {
+          contextualPrompt = `[Instrucción estricta: Usa las imágenes proporcionadas como REFERENCIA DE ESTILO, paleta de colores o estética visual para esta solicitud]\n\n${prompt}`;
+        }
+
+        requestContents = this.#prepareContent(contextualPrompt, preparedImages);
+      }
+    }
+
     const data = {
       model: "gemini-3-pro-image-preview",
-      contents: prompt,
-      config: config,
+      contents: requestContents,
+      config: generationConfig,
     };
 
     if (!numberOfImages || numberOfImages === 1) {
