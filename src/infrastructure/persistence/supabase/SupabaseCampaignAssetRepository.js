@@ -2,6 +2,11 @@ import CampaignAssetRepositoryPort from "../../../application/ports/CampaignAsse
 import supabase from "./supabaseClient.js";
 
 class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
+  constructor(vectorizationService = null) {
+    super();
+    this.vectorizationService = vectorizationService;
+  }
+
   async save(assetData) {
     const {
       img_url,
@@ -72,6 +77,13 @@ class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
     if (error) {
       throw new Error(`Failed to approve asset: ${error.message}`);
     }
+
+    // Vectorizar en background al aprobar
+    if (data && data.prompt_used && this.vectorizationService) {
+      this.vectorizationService.vectorizeAsset(data.id, data.prompt_used)
+        .catch(err => console.error('[SupabaseCampaignAssetRepository] Error vectorizando asset aprobado:', err));
+    }
+
     return data;
   }
 
@@ -91,12 +103,26 @@ class SupabaseCampaignAssetRepository extends CampaignAssetRepositoryPort {
     const { data, error } = await supabase
       .from('campaign_assets')
       .select('*')
-      .eq('campaign_assets', campaignId); // campaign_assets is the FK column name
+      .eq('campaign_assets', campaignId);
 
     if (error) {
       throw new Error(`Failed to fetch assets for campaign: ${error.message}`);
     }
     return data;
+  }
+
+  async searchByVector(queryEmbedding, campaignId, limit = 20) {
+    const { data, error } = await supabase
+      .rpc('match_assets', {
+        query_embedding: queryEmbedding,
+        campaign_id_filter: campaignId,
+        match_count: limit
+      });
+
+    if (error) {
+      throw new Error(`Vector search failed: ${error.message}`);
+    }
+    return data || [];
   }
 }
 

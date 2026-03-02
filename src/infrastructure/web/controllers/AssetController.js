@@ -3,6 +3,7 @@ import DeleteAssetUseCase from "../../../application/use-cases/assets/DeleteAsse
 import GetAssetsUseCase from "../../../application/use-cases/assets/GetAssetsUseCase.js";
 import GcpStorageAdapter from "../../external-services/storage/GcpStorageAdapter.js";
 import SupabaseCampaignAssetRepository from "../../persistence/supabase/SupabaseCampaignAssetRepository.js";
+import VertexVectorizationService from "../../ai/VertexVectorizationService.js";
 import gcsClient from "../../external-services/storage/gcsClient.js";
 
 class AssetController {
@@ -12,7 +13,7 @@ class AssetController {
         const bucket = this.gcsClient.bucket(bucketName);
 
         this.gcpStorageAdapter = new GcpStorageAdapter(bucket);
-        this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
+        this.campaignAssetRepository = new SupabaseCampaignAssetRepository(new VertexVectorizationService());
 
         this.approveAssetUseCase = new ApproveAssetUseCase(this.gcpStorageAdapter, this.campaignAssetRepository);
         this.deleteAssetUseCase = new DeleteAssetUseCase(this.gcpStorageAdapter, this.campaignAssetRepository);

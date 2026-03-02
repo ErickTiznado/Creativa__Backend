@@ -27,14 +27,13 @@ class VertexVectorizationService {
         this.predictionClient = new PredictionServiceClient(clientOptions);
     }
 
-    // --- Método Privado: Lo que antes hacía VectorCore ---
-    async _generateEmbedding(text) {
+    // --- Método Privado: genera embedding con task_type configurable ---
+    async _generateEmbedding(text, taskType = "RETRIEVAL_DOCUMENT") {
         const endpoint = `projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${EMBEDDING_MODEL}`;
 
-        // 1. CORRECCIÓN: Usar 'content' y 'task_type' tal cual lo pedía tu código original
         const instance = helpers.toValue({
             content: text,
-            task_type: "RETRIEVAL_DOCUMENT"
+            task_type: taskType
         });
 
         const request = {
@@ -56,6 +55,48 @@ class VertexVectorizationService {
         // Convertir a array de números
         return valuesProto.listValue.values.map((v) => Number(v.numberValue));
     }
+    // --- Genera embedding para una consulta de búsqueda (RETRIEVAL_QUERY) ---
+    async generateQueryEmbedding(text) {
+        return this._generateEmbedding(text, "RETRIEVAL_QUERY");
+    }
+
+    // --- Vectoriza un asset y lo guarda en campaign_asset_vectors ---
+    async vectorizeAsset(assetId, promptUsed) {
+        try {
+            if (!promptUsed?.trim()) {
+                console.warn(`[VertexVectorizationService] Sin prompt para asset ${assetId}`);
+                return;
+            }
+
+            const embedding = await this._generateEmbedding(promptUsed, "RETRIEVAL_DOCUMENT");
+
+            const { data: existing, error: selectError } = await supabase
+                .from('campaign_asset_vectors')
+                .select('id')
+                .eq('asset_id', assetId)
+                .maybeSingle();
+
+            if (selectError) throw selectError;
+
+            if (existing) {
+                const { error: updateError } = await supabase
+                    .from('campaign_asset_vectors')
+                    .update({ embedding, prompt_used: promptUsed })
+                    .eq('id', existing.id);
+                if (updateError) throw updateError;
+            } else {
+                const { error: insertError } = await supabase
+                    .from('campaign_asset_vectors')
+                    .insert([{ asset_id: assetId, embedding, prompt_used: promptUsed }]);
+                if (insertError) throw insertError;
+            }
+
+            console.log(`[VertexVectorizationService] Vector de asset ${assetId} guardado`);
+        } catch (error) {
+            console.error(`[VertexVectorizationService] Error vectorizando asset ${assetId}:`, error);
+        }
+    }
+
     // --- Método del Puerto: El que llama tu Caso de Uso ---
     async vectorizeCampaign(campaignId, briefData) {
         try {
