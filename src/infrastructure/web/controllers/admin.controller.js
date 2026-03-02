@@ -7,7 +7,8 @@ class AdminController {
         toggleUserStatusUseCase,
         listRequestsUseCase,
         createRequestUseCase,
-        updateRequestStatusUseCase
+        updateRequestStatusUseCase,
+        sendResetLinkUseCase
     ) {
         this.listUsersUseCase = listUsersUseCase;
         this.createUserUseCase = createUserUseCase;
@@ -17,6 +18,7 @@ class AdminController {
         this.listRequestsUseCase = listRequestsUseCase;
         this.createRequestUseCase = createRequestUseCase;
         this.updateRequestStatusUseCase = updateRequestStatusUseCase;
+        this.sendResetLinkUseCase = sendResetLinkUseCase;
     }
 
     // ── USUARIOS ─────────────────────────────────────────────────────────────
@@ -113,6 +115,17 @@ class AdminController {
             return res.status(200).json({ success: true, data: request });
         } catch (error) {
             console.error('[AdminController] Error al actualizar solicitud:', error);
+            return res.status(400).json({ success: false, message: error.message });
+        }
+    };
+
+    sendResetLink = async (req, res) => {
+        try {
+            const { id } = req.params;
+            const request = await this.sendResetLinkUseCase.execute(id);
+            return res.status(200).json({ success: true, data: request });
+        } catch (error) {
+            console.error('[AdminController] Error al enviar link de recuperación:', error);
             return res.status(400).json({ success: false, message: error.message });
         }
     };

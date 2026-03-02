@@ -23,4 +23,16 @@ export class SupabaseAuthAdapter extends AuthPort {
         if (error) throw new Error('Token inválido');
         return data.user;
     }
+
+    async sendPasswordReset(email, redirectTo) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) throw new Error(error.message);
+    }
+
+    async resetPassword(accessToken, newPassword) {
+        const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+        if (userError || !user) throw new Error('Token inválido o expirado');
+        const { error } = await supabase.auth.admin.updateUserById(user.id, { password: newPassword });
+        if (error) throw new Error(error.message);
+    }
 }

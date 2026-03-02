@@ -3,6 +3,17 @@ import supabase from './supabaseClient.js';
 
 export class SupabaseRecoveryRequestRepository extends RecoveryRequestRepositoryPort {
 
+    async getRequestById(requestId) {
+        const { data, error } = await supabase
+            .from('recovery_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (error) throw new Error(error.message);
+        return this.#mapRequest(data);
+    }
+
     async listRequests() {
         const { data, error } = await supabase
             .from('recovery_requests')

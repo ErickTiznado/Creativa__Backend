@@ -5,6 +5,7 @@ import { SupabaseUserRepository } from '../../persistence/supabase/SupabaseUserR
 // Casos de Uso
 import { LoginUseCase } from '../../../application/use-cases/auth/LoginUseCase.js';
 import { RegisterUseCase } from '../../../application/use-cases/auth/RegisterUseCase.js';
+import { ResetPasswordUseCase } from '../../../application/use-cases/auth/ResetPasswordUseCase.js';
 import { GetProfileUseCase } from '../../../application/use-cases/profile/GetProfileUseCase.js';
 import { UpdateProfileUseCase } from '../../../application/use-cases/profile/UpdateProfileUseCase.js';
 // Controladores y Middlewares
@@ -19,14 +20,16 @@ const userRepo = new SupabaseUserRepository();
 
 const loginUseCase = new LoginUseCase(authAdapter, userRepo);
 const registerUseCase = new RegisterUseCase(authAdapter);
+const resetPasswordUseCase = new ResetPasswordUseCase(authAdapter);
 const getProfileUseCase = new GetProfileUseCase(userRepo);
 const updateProfileUseCase = new UpdateProfileUseCase(userRepo);
 
-const controller = makeAuthController(loginUseCase, registerUseCase, getProfileUseCase, updateProfileUseCase);
+const controller = makeAuthController(loginUseCase, registerUseCase, getProfileUseCase, updateProfileUseCase, resetPasswordUseCase);
 
 // Rutas Públicas
 router.post('/login', controller.login);
 router.post('/register', controller.register);
+router.post('/reset-password', controller.resetPassword); // Pública — procesa el token del link
 
 // Rutas Protegidas
 router.get('/profile', requireAuth(authAdapter), controller.getProfile);

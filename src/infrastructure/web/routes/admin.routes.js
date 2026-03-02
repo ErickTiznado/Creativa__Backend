@@ -14,6 +14,7 @@ import { ToggleUserStatusUseCase } from '../../../application/use-cases/admin/us
 import { ListRequestsUseCase } from '../../../application/use-cases/admin/requests/ListRequestsUseCase.js';
 import { CreateRequestUseCase } from '../../../application/use-cases/admin/requests/CreateRequestUseCase.js';
 import { UpdateRequestStatusUseCase } from '../../../application/use-cases/admin/requests/UpdateRequestStatusUseCase.js';
+import { SendResetLinkUseCase } from '../../../application/use-cases/admin/requests/SendResetLinkUseCase.js';
 // Controlador y Middlewares
 import AdminController from '../controllers/admin.controller.js';
 import { requireAuth, requireRole } from '../middlewares/authMiddleware.js';
@@ -35,6 +36,7 @@ const toggleUserStatusUseCase = new ToggleUserStatusUseCase(adminUserRepo);
 const listRequestsUseCase = new ListRequestsUseCase(recoveryRequestRepo);
 const createRequestUseCase = new CreateRequestUseCase(recoveryRequestRepo);
 const updateRequestStatusUseCase = new UpdateRequestStatusUseCase(recoveryRequestRepo);
+const sendResetLinkUseCase = new SendResetLinkUseCase(recoveryRequestRepo, authAdapter, process.env.FRONTEND_URL);
 
 const adminController = new AdminController(
     listUsersUseCase,
@@ -44,7 +46,8 @@ const adminController = new AdminController(
     toggleUserStatusUseCase,
     listRequestsUseCase,
     createRequestUseCase,
-    updateRequestStatusUseCase
+    updateRequestStatusUseCase,
+    sendResetLinkUseCase
 );
 
 // Guard para rutas de admin (busca el rol en la tabla profile)
@@ -60,6 +63,7 @@ router.patch('/users/:id/status', adminGuard, adminController.toggleUserStatus);
 // ── Rutas de Solicitudes ──────────────────────────────────────────────────────
 router.get('/requests', adminGuard, adminController.listRequests);
 router.patch('/requests/:id', adminGuard, adminController.updateRequestStatus);
+router.post('/requests/:id/send-reset', adminGuard, adminController.sendResetLink);
 router.post('/requests', adminController.createRequest); // Pública — formulario de recuperación
 
 export default router;

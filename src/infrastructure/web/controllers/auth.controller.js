@@ -1,4 +1,4 @@
-export const makeAuthController = (loginUseCase, registerUseCase, getProfileUseCase, updateProfileUseCase) => {
+export const makeAuthController = (loginUseCase, registerUseCase, getProfileUseCase, updateProfileUseCase, resetPasswordUseCase) => {
     return {
         login: async (req, res, next) => {
             try {
@@ -41,6 +41,16 @@ export const makeAuthController = (loginUseCase, registerUseCase, getProfileUseC
                 res.status(200).json(updatedProfile);
             } catch (error) {
                 res.status(400).json({ error: error.message });
+            }
+        },
+
+        resetPassword: async (req, res) => {
+            try {
+                const { accessToken, newPassword } = req.body;
+                await resetPasswordUseCase.execute(accessToken, newPassword);
+                res.status(200).json({ success: true, message: 'Contraseña actualizada correctamente' });
+            } catch (error) {
+                res.status(400).json({ success: false, message: error.message });
             }
         }
     };
