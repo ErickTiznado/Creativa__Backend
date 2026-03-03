@@ -1,13 +1,23 @@
 import { VertexAI } from "@google-cloud/vertexai";
 import 'dotenv/config';
 
+let authOptions = {};
+
+if (process.env.GOOGLE_CREDS_JSON) {
+    try {
+        authOptions.credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+    } catch (e) {
+        console.error("Error al hacer JSON.parse de GOOGLE_CREDS_JSON:", e);
+    }
+} else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    authOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+}
+
 // Conectamos directo a tu .env hexagonal
 const vertexInstance = new VertexAI({
     project: process.env.GOOGLE_PROJECT_ID,
     location: process.env.GOOGLE_LOCATION || "us-central1",
-    googleAuthOptions: {
-        keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    },
+    googleAuthOptions: authOptions,
 });
 
 const systemInstruction = `
