@@ -38,6 +38,19 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
         return true;
     }
 
+    async updateBrief(campaignId, briefData) {
+        const { error } = await supabase
+            .schema('devschema')
+            .from('campaigns')
+            .update({ brief_data: briefData })
+            .eq('id', campaignId);
+
+        if (error) {
+            throw new Error(`Error actualizando brief en Supabase: ${error.message}`);
+        }
+        return true;
+    }
+
     async findById(campaignId) {
         const { data, error } = await supabase
             .schema('devschema')
