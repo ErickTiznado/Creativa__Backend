@@ -26,7 +26,7 @@ export const PROMPT_CONFIG = {
     "anime",
     "3d-render",
     "oil-painting",
-    "cyberpunk",
+    "studio-commercial",
     "minimalist",
     "photorealistic",
     "flat-illustration",
@@ -48,8 +48,8 @@ export const STYLE_DEFINITIONS = {
   "oil-painting": {
     description: "The visual style must closely resemble a classical oil painting. It must showcase rich, deeply saturated colors, expressive and highly visible textured brushstrokes, authentic canvas texture peeking through the paint, and a masterful handling of light and shadow characteristic of traditional fine art.",
   },
-  cyberpunk: {
-    description: "The visual style must evoke a gritty, high-tech cyberpunk aesthetic. It must prominently feature high-contrast environments dominated by deep shadows and intense, vivid neon lights. Key elements include futuristic tech, reflective wet surfaces, glowing accents, and a moody, dystopian atmosphere.",
+  "studio-commercial": {
+    description: "The visual style must be a high-end commercial studio photography. It must feature impeccable lighting (softboxes, rim lights), clean backgrounds or contextually relevant settings, razor-sharp focus on the product or subject, and a polished, professional aesthetic suitable for premium advertising.",
   },
   minimalist: {
     description: "The visual style must adhere to strict minimalism. It relies heavily on abundant, clean negative space, simple and bold geometric shapes, a highly restricted but elegant color palette, flat design aesthetics, and an overall modern, uncluttered composition that draws focus entirely to the subject.",
@@ -72,7 +72,7 @@ export const QUALITY_BOILERPLATE_BY_STYLE = {
   anime:               `High-quality anime illustration, 4K resolution, vibrant cel-shaded rendering, painterly backgrounds.`,
   "3d-render":         `Cutting-edge 3D render, Octane/UE5 quality, ray-traced global illumination, hyper-realistic materials, 8K.`,
   "oil-painting":      `Classical oil painting quality, rich pigment, visible brushstrokes, canvas texture, fine art masterpiece.`,
-  cyberpunk:           `Gritty cyberpunk aesthetic, ultra-detailed neon lighting, high contrast, cinematic composition, 4K.`,
+  "studio-commercial": `Professional studio photography, commercial lighting, high-end advertising quality, 8k, sharp focus.`,
   minimalist:          `Award-winning minimal composition, crisp clarity, elegant negative space, professional graphic design quality.`,
   photorealistic:      `Award-winning commercial photography, hyperrealistic, 8K raw photo, professional studio lighting, razor-sharp details.`,
   "flat-illustration": `Professional flat design illustration, bold geometric shapes, clean vector-like quality, modern graphic design.`,
