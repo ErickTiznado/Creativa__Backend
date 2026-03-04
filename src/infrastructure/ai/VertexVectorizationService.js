@@ -5,11 +5,9 @@ import 'dotenv/config';
 const PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
 const LOCATION = process.env.GOOGLE_LOCATION || 'us-central1';
 const EMBEDDING_MODEL = 'text-embedding-004';
-const KEY_FILE_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
 class VertexVectorizationService {
     constructor() {
-        // Validación de seguridad para que no crashee en silencio si falta el ID
         if (!PROJECT_ID) {
             console.error("[VertexVectorizationService] ⚠️ Falta GOOGLE_PROJECT_ID en el .env");
         }
@@ -19,9 +17,14 @@ class VertexVectorizationService {
             projectId: PROJECT_ID,
         };
 
-        // Le pasamos la ruta de tu JSON (./config/key/creativa-key.json)
-        if (KEY_FILE_PATH) {
-            clientOptions.keyFilename = KEY_FILE_PATH;
+        if (process.env.GOOGLE_CREDS_JSON) {
+            try {
+                clientOptions.credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+            } catch (e) {
+                console.error("[VertexVectorizationService] Error al parsear GOOGLE_CREDS_JSON:", e);
+            }
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            clientOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
         }
 
         this.predictionClient = new PredictionServiceClient(clientOptions);

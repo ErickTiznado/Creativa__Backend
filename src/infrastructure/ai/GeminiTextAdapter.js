@@ -9,12 +9,22 @@ class GeminiTextAdapter extends TextGenerationPort {
     constructor(modelName = "gemini-2.5-flash") {
         super();
         this.#modelName = modelName;
+
+        const authOptions = {};
+        if (process.env.GOOGLE_CREDS_JSON) {
+            try {
+                authOptions.credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+            } catch (e) {
+                console.error("[GeminiTextAdapter] Error al parsear GOOGLE_CREDS_JSON:", e);
+            }
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            authOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        }
+
         this.#vertexInstance = new VertexAI({
             project: process.env.GOOGLE_PROJECT_ID,
             location: process.env.GOOGLE_LOCATION || "us-central1",
-            googleAuthOptions: {
-                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-            },
+            googleAuthOptions: authOptions,
         });
     }
 
