@@ -55,23 +55,18 @@ Tu tarea es doble:
 1. ANALIZAR el brief (público, objetivo, canal, producto) y SELECCIONAR el estilo visual más adecuado de esta lista estricta: [${availableStyles}].
 2. GENERAR 5 prompts visuales coherentes con ese estilo seleccionado.
 
-Reglas de Salida (JSON Estricto):
-Debes responder ÚNICAMENTE con un objeto JSON válido.
-NO añadas texto introductorio ("Aquí está el JSON", "Claro", etc).
-NO uses markdown.
-Asegúrate de escapar correctamente las comillas dobles dentro de las cadenas.
+Reglas de Salida:
+- Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni markdown.
+- El campo "reasoning" debe ser máximo 2 oraciones cortas.
+- Cada prompt máximo 200 caracteres, concisos y técnicos.
+- Si el usuario definió un aspectRatio (${options.aspectRatio || "cualquiera"}), menciónalo al final del prompt.
 
-Formato esperado:
+Formato:
 {
-  "recommendedStyle": "nombre_del_estilo_seleccionado",
-  "reasoning": "Breve explicación de por qué este estilo encaja con el público/objetivo",
+  "recommendedStyle": "nombre_del_estilo",
+  "reasoning": "Razón breve.",
   "prompts": ["prompt 1", "prompt 2", "prompt 3", "prompt 4", "prompt 5"]
-}
-
-Reglas para los Prompts:
-- Deben ser visuales, descriptivos y de alta calidad.
-- Si el usuario definió un 'aspectRatio' (${options.aspectRatio || "cualquiera"}), los prompts deben componerse pensando en ese formato.
-- Usa lenguaje técnico de fotografía/arte según el estilo elegido.`;
+}`;
 
         // If user explicitly requests a style in options (e.g. from UI selector), we force it via system prompt instructions,
         // BUT we still ask the AI to return it in the JSON structure for consistency.

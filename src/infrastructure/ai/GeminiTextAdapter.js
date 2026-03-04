@@ -35,7 +35,8 @@ class GeminiTextAdapter extends TextGenerationPort {
             generationConfig: {
                 temperature: 0.8,
                 topP: 0.95,
-                maxOutputTokens: 2048,
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json",
             },
         });
 
