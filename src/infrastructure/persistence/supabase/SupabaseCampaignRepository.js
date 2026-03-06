@@ -12,7 +12,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
         };
 
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .insert([insertPayload])
             .select()
@@ -27,7 +27,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
 
     async updateStatus(campaignId, status) {
         const { error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .update({ status: status })
             .eq('id', campaignId);
@@ -40,7 +40,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
 
     async updateBrief(campaignId, briefData) {
         const { error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .update({ brief_data: briefData })
             .eq('id', campaignId);
@@ -53,7 +53,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
 
     async findById(campaignId) {
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .select()
             .eq('id', campaignId)
@@ -69,7 +69,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
 
     async findByDesignerId(designerId) {
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .select('*')
             .eq('designer_id', designerId);
@@ -88,7 +88,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
     async findByIdAndDesignerId(campaignId, designerId) {
 
         const { data: campaign, error: campaignError } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .select('*')
             .eq('id', campaignId)
@@ -101,7 +101,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
         }
 
         const { data: assets, error: assetsError } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaign_assets')
             .select('*')
             .eq('campaign_assets', campaignId);
@@ -140,7 +140,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
 
     async findAll() {
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaigns')
             .select('*')
             .order('created_at', { ascending: false });

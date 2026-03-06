@@ -56,8 +56,8 @@ Pure ESM (`"type": "module"`). Use `import`/`export` everywhere. Babel transform
 
 ## Supabase
 
-- Schema: `devschema`
-- The global Supabase client (`supabaseClient.js`) already sets `db: { schema: 'devschema' }`. Do **not** call `.schema('devschema')` again in new repositories (existing ones like `SupabaseCampaignRepository` do it redundantly — don't repeat this pattern).
+- Schema: `devschema_test`
+- The global Supabase client (`supabaseClient.js`) already sets `db: { schema: 'devschema_test' }`. Do **not** call `.schema('devschema_test')` again in new repositories (existing ones like `SupabaseCampaignRepository` do it redundantly — don't repeat this pattern).
 - `SupabaseAuthAdapter` is a **named export**: `import { SupabaseAuthAdapter } from '...'`
 - `requireAuth` middleware is a **named export** from `authMiddleware.js`
 

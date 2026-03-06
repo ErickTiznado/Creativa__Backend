@@ -9,7 +9,7 @@ class SupabaseChatRepository {
 
         try {
             const { data, error } = await supabase
-                .schema('devschema')
+                .schema('devschema_test')
                 .from('campaings_chat_sessions')
                 .select('*')
                 .eq('campings_id', campaignId);
@@ -26,7 +26,7 @@ class SupabaseChatRepository {
         if (!sessionId || sessionId === 'undefined') throw new Error("ID de sesión inválido");
 
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaings_chat_sessions')
             .select('*')
             .eq('id', sessionId)
@@ -38,7 +38,7 @@ class SupabaseChatRepository {
 
     async upsertSession(sessionData) {
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('campaings_chat_sessions')
             .upsert([sessionData], { onConflict: 'id' });
 

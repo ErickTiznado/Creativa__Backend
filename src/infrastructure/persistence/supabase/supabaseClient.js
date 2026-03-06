@@ -12,7 +12,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
     db: {
-        schema: 'devschema',
+        schema: 'devschema_test',
     }
 });
 

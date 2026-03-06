@@ -2,7 +2,7 @@ import supabase from "../../persistence/supabase/supabaseClient.js";
 
 // Ya se encontraba dentro de un model aparte
 class Assets {
-  static tableName = "devschema.campaign_assets";
+  static tableName = "devschema_test.campaign_assets";
 }
 // ya se encontraban en el controlador =>
 export const getAssets = async (req, res) => {

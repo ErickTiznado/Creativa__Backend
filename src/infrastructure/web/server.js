@@ -56,11 +56,16 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar Servidor (Solo si no es test)
-if (process.env.NODE_ENV !== "test") {
+// ... todo tu código de configuración de Express, middlewares y rutas de tu arquitectura hexagonal ...
+
+// 1. Levantamos el servidor SOLO si estamos en local
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
-    console.log(`Arquitectura Hexagonal lista en src/`);
+    console.log(`🔥 Servidor local corriendo al cien en el puerto ${PORT}`);
+    console.log(`Conectado al esquema de pruebas: devschema_test`);
   });
 }
 
+// 2. Exportamos la app para que Vercel la pueda usar como Serverless Function
 export default app;

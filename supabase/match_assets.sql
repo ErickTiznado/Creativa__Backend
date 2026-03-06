@@ -4,7 +4,7 @@
 -- Requiere la extensión pgvector habilitada en el proyecto Supabase.
 -- La dimensión 768 corresponde al modelo text-embedding-004 de Google Vertex AI.
 
-CREATE OR REPLACE FUNCTION devschema.match_assets(
+CREATE OR REPLACE FUNCTION devschema_test.match_assets(
   query_embedding vector(768),
   campaign_id_filter uuid,
   match_threshold float DEFAULT 0.3,
@@ -39,8 +39,8 @@ BEGIN
     ca.storage_location,
     ca.is_saved,
     (1 - (cav.embedding <=> query_embedding))::float AS similarity
-  FROM devschema.campaign_asset_vectors cav
-  JOIN devschema.campaign_assets ca ON ca.id = cav.asset_id
+  FROM devschema_test.campaign_asset_vectors cav
+  JOIN devschema_test.campaign_assets ca ON ca.id = cav.asset_id
   WHERE ca.campaign_assets = campaign_id_filter
     AND (1 - (cav.embedding <=> query_embedding)) > match_threshold
   ORDER BY cav.embedding <=> query_embedding

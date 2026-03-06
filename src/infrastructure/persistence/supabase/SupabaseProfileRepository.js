@@ -4,7 +4,7 @@ import supabase from './supabaseClient.js';
 class SupabaseProfileRepository extends ProfileRepositoryPort {
     async findDesigners() {
         const { data, error } = await supabase
-            .schema('devschema')
+            .schema('devschema_test')
             .from('profile')
             .select('*')
             .eq('role', 'designer');

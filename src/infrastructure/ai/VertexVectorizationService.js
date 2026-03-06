@@ -127,7 +127,7 @@ class VertexVectorizationService {
 
             // 3. Guardar en Supabase
             const { data: existing, error: searchError } = await supabase
-                .schema('devschema')
+                .schema('devschema_test')
                 .from('campaign_vectors')
                 .select('id')
                 .eq('campaign_id', campaignId);
@@ -136,14 +136,14 @@ class VertexVectorizationService {
 
             if (existing && existing.length > 0) {
                 await supabase
-                    .schema('devschema')
+                    .schema('devschema_test')
                     .from('campaign_vectors')
                     .update({ embedding: embedding, text_content: textToVectorize })
                     .eq('id', existing[0].id);
                 console.log(`[VertexVectorizationService] Vector actualizado en BD para campaña ${campaignId}`);
             } else {
                 await supabase
-                    .schema('devschema')
+                    .schema('devschema_test')
                     .from('campaign_vectors')
                     .insert([{
                         campaign_id: campaignId,
