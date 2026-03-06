@@ -73,9 +73,9 @@ class ChatController {
                 campings_id: incomingCampaignId || existingSession?.campings_id || null
             };
 
-            const finalUserId = req.body.userId || req.body.user_id || existingSession?.userId;
+            const finalUserId = req.body.userId || req.body.user_id || existingSession?.userid;
             if (finalUserId) {
-                payload.userId = finalUserId;
+                payload.userid = finalUserId;
             }
 
             console.log(`[ChatController] 💾 Guardando este Payload EXACTO en Supabase:`, JSON.stringify(payload));
@@ -151,9 +151,9 @@ class ChatController {
                 campings_id: campaignId || sessionRecord?.campings_id || null
             };
 
-            const finalUserId = userId || sessionRecord?.userId;
+            const finalUserId = userId || sessionRecord?.userid;
             if (finalUserId) {
-                sessionPayload.userId = finalUserId;
+                sessionPayload.userid = finalUserId;
             }
 
             await this.chatRepository.upsertSession(sessionPayload);
