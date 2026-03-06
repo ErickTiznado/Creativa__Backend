@@ -17,7 +17,7 @@ export const PROMPT_CONFIG = {
   MODEL: {
     NAME: "gemini-3-pro-image-preview",
     DEFAULT_ASPECT_RATIO: "16:9",
-    MAX_OUTPUT_TOKENS: 8192,
+    MAX_OUTPUT_TOKENS: 12192,
   },
 
   // Lista simple de IDs de estilos permitidos
@@ -37,46 +37,55 @@ export const PROMPT_CONFIG = {
 // Mapa detallado de modificadores por estilo
 export const STYLE_DEFINITIONS = {
   cinematic: {
-    description: "The visual style must emulate high-end Hollywood cinematography. Key features include moody, dramatic lighting (chiaroscuro), volumetric fog or atmospheric haze, anamorphic lens artifacts such as subtle lens flares and bokeh, cinematic color grading, and a shallow depth of field that sharply separates the subject from the background.",
+    description:
+      "The visual style must emulate high-end Hollywood cinematography. Key features include moody, dramatic lighting (chiaroscuro), volumetric fog or atmospheric haze, anamorphic lens artifacts such as subtle lens flares and bokeh, cinematic color grading, and a shallow depth of field that sharply separates the subject from the background.",
   },
   anime: {
-    description: "The visual style must be a high-quality anime illustration inspired by Studio Ghibli. It features vibrant and rich colors, clean cel-shaded rendering, highly detailed and painted backgrounds, expressive features, and a cohesive, painterly 2D aesthetic rendered in 4k resolution.",
+    description:
+      "The visual style must be a high-quality anime illustration inspired by Studio Ghibli. It features vibrant and rich colors, clean cel-shaded rendering, highly detailed and painted backgrounds, expressive features, and a cohesive, painterly 2D aesthetic rendered in 4k resolution.",
   },
   "3d-render": {
-    description: "The visual style must resemble a cutting-edge 3D render created in Unreal Engine 5 or Cinema 4D using the Octane render engine. It must feature hyper-realistic materials, flawless ray-traced global illumination, studio-quality lighting setups, and extreme attention to microscopic textures and reflections.",
+    description:
+      "The visual style must resemble a cutting-edge 3D render created in Unreal Engine 5 or Cinema 4D using the Octane render engine. It must feature hyper-realistic materials, flawless ray-traced global illumination, studio-quality lighting setups, and extreme attention to microscopic textures and reflections.",
   },
   "oil-painting": {
-    description: "The visual style must closely resemble a classical oil painting. It must showcase rich, deeply saturated colors, expressive and highly visible textured brushstrokes, authentic canvas texture peeking through the paint, and a masterful handling of light and shadow characteristic of traditional fine art.",
+    description:
+      "The visual style must closely resemble a classical oil painting. It must showcase rich, deeply saturated colors, expressive and highly visible textured brushstrokes, authentic canvas texture peeking through the paint, and a masterful handling of light and shadow characteristic of traditional fine art.",
   },
   "studio-commercial": {
-    description: "The visual style must be a high-end commercial studio photography. It must feature impeccable lighting (softboxes, rim lights), clean backgrounds or contextually relevant settings, razor-sharp focus on the product or subject, and a polished, professional aesthetic suitable for premium advertising.",
+    description:
+      "The visual style must be a high-end commercial studio photography. It must feature impeccable lighting (softboxes, rim lights), clean backgrounds or contextually relevant settings, razor-sharp focus on the product or subject, and a polished, professional aesthetic suitable for premium advertising.",
   },
   minimalist: {
-    description: "The visual style must adhere to strict minimalism. It relies heavily on abundant, clean negative space, simple and bold geometric shapes, a highly restricted but elegant color palette, flat design aesthetics, and an overall modern, uncluttered composition that draws focus entirely to the subject.",
+    description:
+      "The visual style must adhere to strict minimalism. It relies heavily on abundant, clean negative space, simple and bold geometric shapes, a highly restricted but elegant color palette, flat design aesthetics, and an overall modern, uncluttered composition that draws focus entirely to the subject.",
   },
   photorealistic: {
-    description: "The visual style must be indistinguishable from a professional commercial photograph taken with a high-end DSLR or medium format camera. Key features include razor-sharp focus on the subject, natural bokeh, authentic studio or location lighting, true-to-life textures, and no digital art processing.",
+    description:
+      "The visual style must be indistinguishable from a professional commercial photograph taken with a high-end DSLR or medium format camera. Key features include razor-sharp focus on the subject, natural bokeh, authentic studio or location lighting, true-to-life textures, and no digital art processing.",
   },
   "flat-illustration": {
-    description: "The visual style must be a professional flat design illustration. Key features include bold, clean geometric shapes, a limited but harmonious color palette, absence of shadows or gradients (or only subtle ones), and a modern, graphic design aesthetic suited for editorial or marketing use.",
+    description:
+      "The visual style must be a professional flat design illustration. Key features include bold, clean geometric shapes, a limited but harmonious color palette, absence of shadows or gradients (or only subtle ones), and a modern, graphic design aesthetic suited for editorial or marketing use.",
   },
   vintage: {
-    description: "The visual style must evoke authentic vintage or retro photography from the 1960s–1980s. Key features include warm, slightly faded analog tones, subtle film grain and light leaks, slightly desaturated highlights, a classic compositional framing, and an overall timeless, nostalgic mood.",
+    description:
+      "The visual style must evoke authentic vintage or retro photography from the 1960s–1980s. Key features include warm, slightly faded analog tones, subtle film grain and light leaks, slightly desaturated highlights, a classic compositional framing, and an overall timeless, nostalgic mood.",
   },
 };
 
 export const QUALITY_BOILERPLATE_UNIVERSAL = `Award-winning composition, extremely detailed, professional visuals, high resolution.`;
 
 export const QUALITY_BOILERPLATE_BY_STYLE = {
-  cinematic:           `Award-winning cinematic composition, anamorphic lens, film grain, professional color grading, 4K.`,
-  anime:               `High-quality anime illustration, 4K resolution, vibrant cel-shaded rendering, painterly backgrounds.`,
-  "3d-render":         `Cutting-edge 3D render, Octane/UE5 quality, ray-traced global illumination, hyper-realistic materials, 8K.`,
-  "oil-painting":      `Classical oil painting quality, rich pigment, visible brushstrokes, canvas texture, fine art masterpiece.`,
+  cinematic: `Award-winning cinematic composition, anamorphic lens, film grain, professional color grading, 4K.`,
+  anime: `High-quality anime illustration, 4K resolution, vibrant cel-shaded rendering, painterly backgrounds.`,
+  "3d-render": `Cutting-edge 3D render, Octane/UE5 quality, ray-traced global illumination, hyper-realistic materials, 8K.`,
+  "oil-painting": `Classical oil painting quality, rich pigment, visible brushstrokes, canvas texture, fine art masterpiece.`,
   "studio-commercial": `Professional studio photography, commercial lighting, high-end advertising quality, 8k, sharp focus.`,
-  minimalist:          `Award-winning minimal composition, crisp clarity, elegant negative space, professional graphic design quality.`,
-  photorealistic:      `Award-winning commercial photography, hyperrealistic, 8K raw photo, professional studio lighting, razor-sharp details.`,
+  minimalist: `Award-winning minimal composition, crisp clarity, elegant negative space, professional graphic design quality.`,
+  photorealistic: `Award-winning commercial photography, hyperrealistic, 8K raw photo, professional studio lighting, razor-sharp details.`,
   "flat-illustration": `Professional flat design illustration, bold geometric shapes, clean vector-like quality, modern graphic design.`,
-  vintage:             `Authentic vintage photography aesthetic, warm analog tones, subtle film grain, retro color palette, timeless composition.`,
+  vintage: `Authentic vintage photography aesthetic, warm analog tones, subtle film grain, retro color palette, timeless composition.`,
 };
 
 export const EDIT_MODE_DIRECTIVES = {

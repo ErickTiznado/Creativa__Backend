@@ -55,6 +55,11 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Evita que errores de promesas no capturadas (ej: gRPC en background) derrumben el proceso
+process.on("unhandledRejection", (reason) => {
+  console.error("[Server] Unhandled promise rejection (background task):", reason?.message ?? reason);
+});
+
 // Iniciar Servidor (Solo si no es test)
 // ... todo tu código de configuración de Express, middlewares y rutas de tu arquitectura hexagonal ...
 
