@@ -8,7 +8,8 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
             user_id: campaignData.user_id,
             designer_id: campaignData.designer_id,
             status: campaignData.status,
-            brief_data: campaignData.brief_data
+            brief_data: campaignData.brief_data,
+            company: campaignData.company
         };
 
         const { data, error } = await supabase

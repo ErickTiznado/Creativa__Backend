@@ -16,14 +16,15 @@ class CampaignController {
     // Tarea 1: Registrar
     register = async (req, res) => {
         try {
-            const { user_id, data, designer_id, idCampaing } = req.body;
+            const { user_id, data, designer_id, idCampaing, company} = req.body;
 
             // 2. Guardamos la campaña en la base de datos (como ya lo hacías)
             const result = await this.registerCampaignUseCase.execute({
                 user_id,
                 data,
                 designer_id,
-                idCampaing
+                idCampaing,
+                company: data?.company || company
             });
 
             // 3. EL FIX MÁGICO: Disparamos la vectorización

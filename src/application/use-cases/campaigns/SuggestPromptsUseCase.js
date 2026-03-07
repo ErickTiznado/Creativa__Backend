@@ -89,6 +89,7 @@ Formato:
             brief.publishing_channel && `Canal: ${brief.publishing_channel}`,
             brief.target_audience && `Público Objetivo: ${brief.target_audience}`, // Added target audience if available
             brief.public && `Público: ${brief.public}`, // Alternative field name
+            brief.company && `Empresa: ${brief.company}`, // Added company if available
             brief.observations && `Observaciones: ${brief.observations}`,
         ].filter(Boolean);
 

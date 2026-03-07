@@ -7,7 +7,7 @@ class RegisterCampaignUseCase {
     }
 
     async execute(payload) {
-        const { user_id, designer_id, data, idCampaing } = payload;
+        const { user_id, designer_id, data, idCampaing, company} = payload;
 
         if (!user_id || !designer_id) {
             throw new Error('user_id y designer_id son obligatorios');
@@ -19,7 +19,8 @@ class RegisterCampaignUseCase {
             user_id,
             designer_id,
             status: 'draft',
-            brief_data: data
+            brief_data: data,
+            company: data?.company || company
         };
 
         // 1. Save campaign FIRST (fast response)
