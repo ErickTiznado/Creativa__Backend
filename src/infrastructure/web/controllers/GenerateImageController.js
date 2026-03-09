@@ -29,11 +29,11 @@ class GenerateImageController {
     this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
     this.contextRetriever = new SupabaseContextRetriever();
 
-    const redLogoPath = path.join(__dirname, '../../../references/logo_creativa_red.png');
-    const whiteLogoPath = path.join(__dirname, '../../../references/logo_creativa_white.png');
-    const logoBufferRed = fs.readFileSync(redLogoPath);
-    const logoBufferWhite = fs.readFileSync(whiteLogoPath);
-    this.sharpImageAdapter = new SharpImageAdapter(logoBufferWhite, logoBufferRed);
+    // --- CAMBIO v2.0: Ahora le pasamos la RUTA de la carpeta, no los buffers quemados ---
+    // Así SharpImageAdapter puede buscar dinámicamente el logo de Visible o Creativa
+    const referencesPath = path.join(__dirname, '../../../references/');
+    this.sharpImageAdapter = new SharpImageAdapter(referencesPath); 
+    // ------------------------------------------------------------------------
 
     this.generateImagesUseCase = new GenerateImagesUseCase(
       this.geminiImageAdapter,
@@ -45,10 +45,14 @@ class GenerateImageController {
     this.generateImage = this.generateImage.bind(this);
   }
 
-  async generateImage(req, res) {
-    try {
-      // NUEVO: Agregamos methodToUse, referenceImageURLs y referenceType a la desestructuración
-      const { prompt, numberOfImages, config, imageConfig, brandId, campaignId, style, methodToUse, referenceImageURLs, referenceType } = req.body;
+async generateImage(req, res) {
+  try {
+    console.log("=== PAYLOAD QUE MANDA MARLON ===", req.body); 
+      const { 
+        prompt, numberOfImages, config, imageConfig, brandId, campaignId, 
+        style, methodToUse, referenceImageURLs, referenceType,
+        resolution, logoType
+      } = req.body;
 
       const generationConfig = { ...config };
       if (imageConfig) {
@@ -62,9 +66,11 @@ class GenerateImageController {
         brandId,
         campaignId,
         style,
-        methodToUse, // <-- NUEVO: Se lo pasamos al payload del caso de uso
+        methodToUse, 
         referenceImageURLs,
-        referenceType
+        referenceType,
+        resolution, // NUEVO
+        logoType    // NUEVO
       });
 
       const assets = rawResults.map((item) => {

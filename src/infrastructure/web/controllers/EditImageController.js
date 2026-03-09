@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import EditImagesUseCase from "../../../application/use-cases/images/EditImagesUseCase.js";
 import GcpStorageAdapter from "../../external-services/storage/GcpStorageAdapter.js";
 import GeminiImageAdapter from "../../external-services/gemini/GeminiImageAdapter.js";
@@ -5,6 +7,10 @@ import genAiClient from "../../external-services/gemini/genAiClient.js";
 import gcsClient from "../../external-services/storage/gcsClient.js";
 import SupabaseCampaignAssetRepository from "../../persistence/supabase/SupabaseCampaignAssetRepository.js";
 import SupabaseContextRetriever from "../../persistence/supabase/SupabaseContextRetriever.js";
+import SharpImageAdapter from "../../external-services/image-processing/SharpImageAdapter.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class EditImageController {
   constructor() {
@@ -19,11 +25,16 @@ class EditImageController {
     this.campaignAssetRepository = new SupabaseCampaignAssetRepository();
     this.contextRetriever = new SupabaseContextRetriever();
 
+    // --- CAMBIO V2.0: Inyectamos SharpImageAdapter en el modo Edición ---
+    const referencesPath = path.join(__dirname, '../../../references/');
+    this.sharpImageAdapter = new SharpImageAdapter(referencesPath);
+
     this.editImagesUseCase = new EditImagesUseCase(
       this.geminiImageAdapter,
       this.gcpStorageAdapter,
       this.campaignAssetRepository,
-      this.contextRetriever
+      this.contextRetriever,
+      this.sharpImageAdapter // Pasamos el puerto al UseCase
     );
     this.editImage = this.editImage.bind(this);
   }
@@ -44,6 +55,7 @@ class EditImageController {
         // Frontend may send these instead:
         assetId,
         maskImage,
+        logoType // <-- CAMBIO V2.0: Atrapamos el logoType
       } = req.body;
 
       // If frontend sends assetId instead of baseImageURL, look up the URL
@@ -98,7 +110,8 @@ class EditImageController {
         campaignId,
         style,
         context,
-        assetId: assetId || null
+        assetId: assetId || null,
+        logoType: logoType || 'Ninguno' // <-- CAMBIO V2.0: Lo mandamos al UseCase
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status, parent_asset_id }]

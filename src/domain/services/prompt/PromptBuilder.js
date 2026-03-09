@@ -63,7 +63,6 @@ class PromptBuilder {
     // CAPA 2: REGLAS DE MARCA (solo si hay contexto de marca)
     // ---------------------------------------------------------
     if (cleanBrand) {
-      parts.push(BRAND_ENFORCEMENT.ATMOSPHERE_RULE);
       parts.push(BRAND_ENFORCEMENT.COMPOSITION_RULE);
     }
 

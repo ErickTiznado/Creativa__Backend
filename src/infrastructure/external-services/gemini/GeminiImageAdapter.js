@@ -72,9 +72,22 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     throw new Error('Gemini no devolvió datos de imagen. Puede que el prompt haya sido rechazado por políticas de seguridad.');
   }
 
-  async generateImages(prompt, config, numberOfImages, referenceImageURLs = null, referenceType = 'style') {
+  // --- CAMBIO v2.0: Recibimos resolution como sexto parámetro ---
+  async generateImages(prompt, config, numberOfImages, referenceImageURLs = null, referenceType = 'style', resolution = '1080x1080') {
     let requestContents = [{ text: prompt }];
     let generationConfig = config || {};
+
+    // --- CAMBIO v2.0: Mapeo de resolución a aspectRatio de la IA ---
+    let aspectRatio = "1:1"; // Por defecto cuadrado (1080x1080)
+    if (resolution === "1080x1920") {
+      aspectRatio = "9:16"; // Formato vertical (Stories/Reels)
+    } else if (resolution === "1920x1080") {
+      aspectRatio = "16:9"; // Formato horizontal (YouTube/Web)
+    }
+    
+    // Le inyectamos el aspect ratio al config que va hacia la API
+    generationConfig.aspectRatio = aspectRatio;
+    // ----------------------------------------------------------------
 
     // Si hay imágenes de referencia, las descargamos y preparamos
     if (referenceImageURLs) {
@@ -99,7 +112,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
 
     const data = {
-      model: "gemini-3-pro-image-preview",
+      model: "gemini-3-pro-image-preview", 
       contents: requestContents,
       config: generationConfig,
     };

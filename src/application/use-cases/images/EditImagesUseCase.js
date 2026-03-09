@@ -3,11 +3,13 @@ import ImageEditorRequest from "../../../domain/entities/ImageEditorRequest.js";
 import PromptBuilder from "../../../domain/services/prompt/PromptBuilder.js";
 
 class EditImagesUseCase {
-  constructor(aiPort, storagePort, campaignAssetRepository, contextRetriever) {
+  // --- CAMBIO V2.0: Agregamos imageProcessingPort al constructor ---
+  constructor(aiPort, storagePort, campaignAssetRepository, contextRetriever, imageProcessingPort) {
     this.aiPort = aiPort;
     this.storagePort = storagePort;
     this.campaignAssetRepository = campaignAssetRepository;
     this.contextRetriever = contextRetriever;
+    this.imageProcessingPort = imageProcessingPort; 
   }
 
   async execute(rawRequestData) {
@@ -24,6 +26,9 @@ class EditImagesUseCase {
       style,
       assetId,
     } = request;
+
+    // --- CAMBIO V2.0: Lo extraemos directo de rawRequestData por si la entidad no lo tiene mapeado ---
+    const logoType = rawRequestData.logoType || 'Ninguno';
 
     let retrievedContext = null;
     if (this.contextRetriever) {
@@ -74,15 +79,25 @@ class EditImagesUseCase {
 
     const storageResult = await Promise.all(
       buffers.map(async (imageObj) => {
-        const { buffer } = imageObj;
+        let finalBuffer = imageObj.buffer;
 
-        const thumbnailBuffer = await sharp(buffer)
+        // --- CAMBIO V2.0: Aplicamos el logo dinámico si se seleccionó uno ---
+        if (this.imageProcessingPort && logoType !== 'Ninguno') {
+            console.log(`Aplicando marca de agua dinámica en Edición con Sharp (Logo: ${logoType})...`);
+            finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(
+              finalBuffer,
+              logoType,
+              "1080x1080" // Pasamos esto como fallback temporal, Sharp usará metadata.width internamente para la escala
+            );
+        }
+
+        const thumbnailBuffer = await sharp(finalBuffer)
           .resize({ width: 400, withoutEnlargement: true })
           .png()
           .toBuffer();
 
         const uploaded = await this.storagePort.uploadFile(
-          buffer,
+          finalBuffer, // Subimos el buffer con el logo (si aplica)
           thumbnailBuffer,
           request,
         );

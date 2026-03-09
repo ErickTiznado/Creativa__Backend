@@ -171,12 +171,6 @@ export const BRAND_ENFORCEMENT = {
     - Do NOT place complex objects, bright lights, faces, or busy textures in the top-left area.
     - This area is reserved for a branding overlay that will be applied later. Keep it uncluttered.
   `,
-  // REGLA 2: ATMÓSFERA (Gradientes Rojizos)
-  ATMOSPHERE_RULE: `
-    BRAND ATMOSPHERE:
-    - Regardless of the scene, the lighting MUST feature SUBTLE REDDISH GRADIENTS (Hex #FF0000 to #8B0000 range).
-    - The red gradient should act as a cinematic light source or an ambient glow blending into the shadows.
-  `,
 };
 
 export const ERROR_CODES = {

@@ -1,42 +1,78 @@
 import sharp from 'sharp';
+import fs from 'fs';
+import path from 'path';
 
 class SharpImageAdapter {
-    #logoBufferWhite;
-    #logoBufferRed;
+    #referencesPath;
 
-    constructor(logoBufferWhite, logoBufferRed) {
-        this.#logoBufferWhite = logoBufferWhite;
-        this.#logoBufferRed = logoBufferRed;
+    constructor(referencesPath) {
+        this.#referencesPath = referencesPath;
     }
 
-    async applyBrandWatermarkDynamic(baseImageBuffer) {
+    async applyBrandWatermarkDynamic(baseImageBuffer, logoType, resolution) {
         try {
+            // 1. Condición para logo opcional
+            if (!logoType || logoType === 'Ninguno') {
+                console.log('Logo opcional seleccionado: Ninguno. Retornando imagen limpia.');
+                return baseImageBuffer;
+            }
+
             const baseImage = sharp(baseImageBuffer);
             const baseMetadata = await baseImage.metadata();
             const baseWidth = baseMetadata.width;
+            const baseHeight = baseMetadata.height;
 
-            // El logo será el 15% del ancho de la imagen original
-            const targetLogoWidth = Math.round(baseWidth * 0.15);
+            // 2. Lógica para escalar el logo (TAMAÑOS AUMENTADOS)
+            let scaleFactor = 0.25; // 25% del ancho por defecto para 1080x1080 o similares
+            if (baseHeight > baseWidth) {
+                 // Si es vertical (ej. 1080x1920), el logo necesita más presencia relativa al ancho. Subimos al 32%.
+                 scaleFactor = 0.32; 
+            }
+            
+            const targetLogoWidth = Math.round(baseWidth * scaleFactor);
 
-            const resizedWhiteLogo = await sharp(this.#logoBufferWhite)
+            // 3. Preparar las rutas de los logos dependiendo de la marca
+            let darkLogoPath, lightLogoPath;
+
+            if (logoType === 'Creativa') {
+                darkLogoPath = path.join(this.#referencesPath, 'logo_creativa_red.png'); 
+                lightLogoPath = path.join(this.#referencesPath, 'logo_creativa_white.png'); 
+            } else if (logoType === 'Visible') {
+                darkLogoPath = path.join(this.#referencesPath, 'logo_visible_black.png'); 
+                lightLogoPath = path.join(this.#referencesPath, 'logo_visible_white.png'); 
+            } else {
+                 console.warn(`Tipo de logo desconocido: ${logoType}. Se retornará la imagen limpia.`);
+                 return baseImageBuffer;
+            }
+
+            // Validar que los archivos existan
+            if (!fs.existsSync(darkLogoPath) || !fs.existsSync(lightLogoPath)) {
+                throw new Error(`Faltan los archivos de logo para la marca ${logoType} en la carpeta references.`);
+            }
+
+            // Leer los buffers de ambos logos
+            const logoBufferDark = fs.readFileSync(darkLogoPath);
+            const logoBufferLight = fs.readFileSync(lightLogoPath);
+
+            // Redimensionar ambos logos al ancho objetivo
+            const resizedLightLogo = await sharp(logoBufferLight)
                 .ensureAlpha()
                 .resize({ width: targetLogoWidth })
                 .png()
                 .toBuffer();
 
-            const resizedRedLogo = await sharp(this.#logoBufferRed)
+            const resizedDarkLogo = await sharp(logoBufferDark)
                 .ensureAlpha()
                 .resize({ width: targetLogoWidth })
                 .png()
                 .toBuffer();
 
-            const logoMetadata = await sharp(resizedWhiteLogo).metadata();
+            // 4. Lógica de cálculo de brillo estandarizada para ambas marcas
+            const logoMetadata = await sharp(resizedLightLogo).metadata();
             const logoHeight = logoMetadata.height;
-
             const padding = Math.round(logoHeight * 0.1);
-            const top = padding;
-            const left = padding;
-
+            
+            // Extraer la esquina superior izquierda para medir el brillo
             const cornerRegion = await baseImage
                 .clone()
                 .extract({ left: 0, top: 0, width: targetLogoWidth + padding * 2, height: logoHeight + padding * 2 })
@@ -45,19 +81,27 @@ class SharpImageAdapter {
             const stats = await sharp(cornerRegion).stats();
             const brightness = stats.channels[0].mean;
 
-            const logoToUse = brightness < 128 ? resizedWhiteLogo : resizedRedLogo;
+            // Elegir el logo según el contraste (Si el brillo es < 128 (oscuro), usamos el claro. Si no, usamos el oscuro)
+            const finalLogoBuffer = brightness < 128 ? resizedLightLogo : resizedDarkLogo;
+            const chosenColor = brightness < 128 ? 'CLARO/BLANCO' : 'OSCURO/COLOR';
+            
+            console.log(`[${logoType}] Brillo de la esquina: ${brightness.toFixed(2)} | Logo seleccionado: ${chosenColor}`);
 
-            console.log(`Brillo promedio de la esquina: ${brightness.toFixed(2)} | Logo seleccionado: ${brightness < 128 ? 'BLANCO' : 'ROJO'}`);
+            // 5. Pegar el logo seleccionado en la imagen final
+            const logoFinalMetadata = await sharp(finalLogoBuffer).metadata();
+            const finalPadding = Math.round(logoFinalMetadata.height * 0.1);
+            const top = finalPadding;
+            const left = finalPadding;
 
             const finalImageBuffer = await baseImage
-                .composite([{ input: logoToUse, top, left, blend: 'over' }])
+                .composite([{ input: finalLogoBuffer, top, left, blend: 'over' }])
                 .toBuffer();
 
             return finalImageBuffer;
 
         } catch (error) {
             console.error('[SharpImageAdapter] Error aplicando marca de agua dinámica:', error);
-            throw new Error('Fallo al insertar el logo dinámico en la imagen');
+            throw new Error(`Fallo al insertar el logo dinámico en la imagen: ${error.message}`);
         }
     }
 }

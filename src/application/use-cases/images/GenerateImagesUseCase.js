@@ -20,8 +20,12 @@ class GenerateImagesUseCase {
   async execute(rawRequestData) {
     const request = new ImageGeneratorRequest(rawRequestData);
 
-    // Extraemos todo de la request
-    const { prompt, numberOfImages, config, brandId, campaignId, style, referenceImageURLs, referenceType } = request;
+
+    // --- CAMBIO v2.0: Extraemos resolution y logoType ---
+    const { 
+      prompt, numberOfImages, config, brandId, campaignId, 
+      style, referenceImageURLs, referenceType, resolution, logoType 
+    } = request;
 
     // BLINDAJE EXTRA: Lo sacamos de rawRequestData por si la entidad falló
     const methodToUse = request.methodToUse || rawRequestData.methodToUse || 'sharp';
@@ -53,21 +57,29 @@ class GenerateImagesUseCase {
       mode: "generate",
     });
 
-    if (methodToUse === "ai") {
-      const brandInstructions = `\n\nINSTRUCCIONES DE IDENTIDAD DE MARCA: Inserta obligatoriamente el logo de "creativa STUDIOS" en la esquina superior izquierda respetando su zona de protección. No deformes el logo ni quites elementos. Usa estrictamente uno de estos tres colores según el contraste del fondo, prohibido cambiar a otro color: Rojo (#da0d15), Negro (#000000) o Blanco (#ffffff).`;
-      enhancedPrompt = `${enhancedPrompt}${brandInstructions}`;
-    }
+if (methodToUse === "ai") {
+  if (logoType === 'Creativa') {
+    const brandInstructions = `\n\nINSTRUCCIONES DE IDENTIDAD DE MARCA: Inserta obligatoriamente el logo de "creativa STUDIOS" en la esquina superior izquierda respetando su zona de protección. No deformes el logo ni quites elementos. Usa estrictamente uno de estos tres colores según el contraste del fondo, prohibido cambiar a otro color: Rojo (#da0d15), Negro (#000000) o Blanco (#ffffff).`;
+    enhancedPrompt = `${enhancedPrompt}${brandInstructions}`;
+  } else if (logoType === 'Visible') {
+    const brandInstructions = `\n\nINSTRUCCIONES DE IDENTIDAD DE MARCA: Inserta obligatoriamente el logo de la marca "Visible" en la esquina superior izquierda respetando su zona de protección.`;
+    enhancedPrompt = `${enhancedPrompt}${brandInstructions}`;
+  }
+  // Si logoType es 'Ninguno', no inyectamos ninguna instrucción de marca.
+}
 
     console.log("--- GENERANDO CON PROMPT MEJORADO ---");
     console.log(enhancedPrompt);
     console.log(`--- MÉTODO DE LOGO SELECCIONADO: ${methodToUse} ---`);
 
+    // --- CAMBIO v2.0: Le pasamos la resolución al adaptador de IA ---
     const buffers = await this.aiPort.generateImages(
       enhancedPrompt,
       config,
       numberOfImages,
       referenceImageURLs,
-      referenceType
+      referenceType,
+      resolution // NUEVO PARÁMETRO
     );
 
     const storageResult = await Promise.all(
@@ -75,11 +87,14 @@ class GenerateImagesUseCase {
         let finalBuffer = imageObj.buffer;
 
         if (methodToUse === "sharp" && this.imageProcessingPort) {
-          console.log("Aplicando marca de agua dinámica con Sharp...");
-          finalBuffer =
-            await this.imageProcessingPort.applyBrandWatermarkDynamic(
-              finalBuffer,
-            );
+          console.log(`Aplicando marca de agua dinámica con Sharp (Logo: ${logoType})...`);
+          
+          // --- CAMBIO v2.0: Le pasamos el tipo de logo y la resolución a Sharp ---
+          finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(
+            finalBuffer,
+            logoType,
+            resolution
+          );
         }
 
         const thumbnailBuffer = await sharp(finalBuffer)
