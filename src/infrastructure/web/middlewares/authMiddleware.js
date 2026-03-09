@@ -21,13 +21,19 @@ export const requireRole = (userRepository, ...allowedRoles) => {
     return async (req, res, next) => {
         try {
             const profile = await userRepository.findById(req.user.id);
-            const userRole = profile.role;
 
-            if (!allowedRoles.includes(userRole)) {
-                return res.status(403).json({ error: 'Acceso denegado' });
+            const userRole = (profile?.role || '').toLowerCase().trim();
+
+            const normalizedAllowedRoles = allowedRoles.map(role => role.toLowerCase().trim());
+
+            if (!normalizedAllowedRoles.includes(userRole)) {
+                console.warn(`[Middleware] Bloqueo: El rol '${userRole}' no está en la lista permitida [${normalizedAllowedRoles}]`);
+                return res.status(403).json({ error: 'Acceso Denegado' });
             }
+
             next();
         } catch (error) {
+            console.error("[Middleware] Error en validación de rol:", error);
             return res.status(403).json({ error: 'Acceso denegado' });
         }
     };

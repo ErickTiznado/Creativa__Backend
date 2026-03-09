@@ -82,35 +82,35 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
     }
 
     async findByIdAndDesignerId(campaignId, designerId) {
-        throw new Error('ERR_METHOD_NOT_IMPLEMENTED');
-    }
-
-    async findByIdAndDesignerId(campaignId, designerId) {
-
-        const { data: campaign, error: campaignError } = await supabase
+        // 1. Empezamos la consulta solo con el ID de la campaña
+        let query = supabase
             .schema('devschema_test')
             .from('campaigns')
             .select('*')
-            .eq('id', campaignId)
-            .eq('designer_id', designerId)
-            .single();
+            .eq('id', campaignId);
+
+        // 2. SOLO filtramos por diseñador si el frontend nos envió el parámetro
+        if (designerId) {
+            query = query.eq('designer_id', designerId);
+        }
+
+        const { data: campaign, error: campaignError } = await query.single();
 
         if (campaignError) {
             if (campaignError.code === 'PGRST116') return null;
-            throw new Error('Error buscando campaña en Supabase: ${campaignError.message}');
+            throw new Error(`Error buscando campaña en Supabase: ${campaignError.message}`);
         }
 
         const { data: assets, error: assetsError } = await supabase
             .schema('devschema_test')
             .from('campaign_assets')
             .select('*')
-            .eq('campaign_assets', campaignId);
+            .eq('campaign_id', campaignId); // BUG CORREGIDO AQUÍ: Era 'campaign_id', no 'campaign_assets'
 
         if (assetsError) {
             console.error("[Repository] Error buscando assets:", assetsError);
             campaign.assets = [];
         } else {
-
             campaign.assets = assets.map(asset => {
                 const rawUrl = asset.img_url;
                 let imgUrl = rawUrl;
