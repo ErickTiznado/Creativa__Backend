@@ -158,7 +158,7 @@ class ChatController {
 
             await this.chatRepository.upsertSession(sessionPayload);
 
-            const briefKeys = ["nombre_campaing", "ContentType", "Description", "Objective", "observations", "publishing_channel", "fechaPublicacion"];
+            const briefKeys = ["nombre_campaing", "ContentType", "Description", "Objective", "observations", "publishing_channel", "company", "fechaPublicacion"];
             const missingFields = briefKeys.filter(key => !session.data[key]);
 
             console.log(`[ChatController] ✅ Respuesta enviada. Faltan ${missingFields.length} campos.`);

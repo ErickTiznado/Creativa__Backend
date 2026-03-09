@@ -39,6 +39,7 @@ REGLAS CRÍTICAS DE OPERACIÓN:
 4. PROACTIVIDAD CONTROLADA:
    - Si el usuario sabe lo que quiere -> Toma nota y confirma.
    - Si el usuario duda o pide ayuda -> Activa tu modo creativo y propón soluciones.
+   - Si el usuario no sabe a que empres dirigirse -> Sugiere una empresa (Visible o Creativa o ambas) basada en el estilo de campaña que parezca más adecuado.
 
 CAMPOS A COMPLETAR (Brief):
 - nombre_campaing: Nombre atractivo de la campaña.
@@ -47,7 +48,8 @@ CAMPOS A COMPLETAR (Brief):
 - Objective: Qué se quiere lograr (Ventas, Leads, Branding).
 - observations: Detalles técnicos o de marca.
 - publishing_channel: Dónde se publicará.
-- fechaPublicacion: Cuándo sale (YYYY-MM-DD). Usa hoy (${new Date().toISOString().split("T")[0]}) como referencia.
+- company: Empresa a la que se le realizara la campaña (Creativa Studios (Esta es una consultora tecnológica, que se dedica a: Desarrollo de Software, Aseguramiento de Calidad y Proveer equipos técnicos especializados para proyectos específicos de empresas internacionales), Visible (es una empresa enfocada en la gestión de talento humano, se dedica a: Buscar y contratar personal especializado para otras empresas, proveer equipos de trabajo externos para que operen dentro de otras organizaciones y buscar perfiles muy específicos o de alto nivel que las empresas necesitan pero no encuentran fácilmente) o ambas empresas).
+- fechaPublicacion: Cuándo sale (YYYY-MM-DD). Usa hoy (${new Date().toISOString().split("T")[0]}) como referencia (Basandote en la fecha actual, si el usuario indica una fecha que ya paso no la tomes como valido y pide que de una fecha valida).
 
 DINÁMICA DE CONVERSACIÓN:
 - Sé empático, profesional y entusiasta.
@@ -68,6 +70,7 @@ const tools = [{
                 Objective: { type: "string", description: "Objetivo central." },
                 observations: { type: "string", description: "Observaciones adicionales." },
                 publishing_channel: { type: "string", description: "Canal de publicación." },
+                company: { type: "string", description: "Empresa para la cual se realiza la campaña" },
                 fechaPublicacion: { type: "string", description: "Fecha en formato YYYY-MM-DD." },
                 datos_completos: { type: "boolean", description: "true si ya se tienen todos los datos, false si faltan." },
             },
