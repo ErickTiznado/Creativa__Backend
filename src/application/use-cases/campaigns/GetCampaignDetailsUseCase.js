@@ -4,8 +4,9 @@ class GetCampaignDetailsUseCase {
     }
 
     async execute({ campaignId, designerId }) {
-        if (!campaignId || !designerId) {
-            throw new Error('No se proporcionó un id de campaña o diseñador');
+        // 1. Ya no exigimos obligatoriamente el designerId, solo el campaignId
+        if (!campaignId) {
+            throw new Error('No se proporcionó un id de campaña');
         }
 
         const campaignDetails = await this.campaignRepository.findByIdAndDesignerId(campaignId, designerId);
