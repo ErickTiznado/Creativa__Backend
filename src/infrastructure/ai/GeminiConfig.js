@@ -71,7 +71,7 @@ const tools = [{
                 observations: { type: "string", description: "Observaciones adicionales." },
                 publishing_channel: { type: "string", description: "Canal de publicación." },
                 company: { type: "string", description: "Empresa para la cual se realiza la campaña" },
-                fechaPublicacion: { type: "string", description: "Fecha en formato YYYY-MM-DD." },
+                fechaPublicacion: { type: "string", description: `Fecha en formato YYYY-MM-DD, no almacenar fechas anteriores a ${new Date().toISOString().split("T")[0]}, sin importar que la diferencia sea de un solo día`},
                 datos_completos: { type: "boolean", description: "true si ya se tienen todos los datos, false si faltan." },
             },
             required: ["datos_completos"],
