@@ -106,7 +106,7 @@ class SupabaseCampaignRepository extends CampaignRepositoryPort {
             .schema('devschema_test')
             .from('campaign_assets')
             .select('*')
-            .eq('campaign_id', campaignId); // BUG CORREGIDO AQUÍ: Era 'campaign_id', no 'campaign_assets'
+            .eq('campaign_assets', campaignId); // La columna FK se llama 'campaign_assets', no 'campaign_id'
 
         if (assetsError) {
             console.error("[Repository] Error buscando assets:", assetsError);

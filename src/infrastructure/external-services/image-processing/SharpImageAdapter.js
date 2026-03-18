@@ -104,6 +104,62 @@ class SharpImageAdapter {
             throw new Error(`Fallo al insertar el logo dinámico en la imagen: ${error.message}`);
         }
     }
+    /**
+     * Redimensiona un buffer de imagen a las dimensiones reales del string de resolución.
+     * El ANCHO se deriva de la resolución elegida y el ALTO del aspect ratio.
+     * Esto permite que resolución y aspect ratio sean completamente independientes.
+     *
+     * @param {Buffer} imageBuffer - Buffer de la imagen generada por Gemini
+     * @param {string} resolution  - Ej: '1080x1080', '1080x1920', '2K', '4K'
+     * @param {string} aspectRatio - Ej: '1:1', '9:16', '16:9'
+     * @returns {Promise<Buffer>} Buffer redimensionado
+     */
+    async resizeToResolution(imageBuffer, resolution, aspectRatio = '1:1') {
+        // Mapa: string de resolución → ancho base en píxeles
+        const BASE_WIDTH_MAP = {
+            '1080x1080':  1080,
+            '1080x1920':  1080,
+            '1920x1080':  1920,
+            '2K':         2048,
+            '4K':         4096,
+        };
+
+        // Relaciones de aspecto soportadas [partes_ancho, partes_alto]
+        const ASPECT_RATIOS = {
+            '1:1':  [1, 1],
+            '9:16': [9, 16],
+            '16:9': [16, 9],
+            '4:5':  [4, 5],
+            '5:4':  [5, 4],
+            '3:4':  [3, 4],
+            '4:3':  [4, 3],
+            '3:2':  [3, 2],
+            '2:3':  [2, 3],
+        };
+
+        const upperRes = String(resolution).toUpperCase();
+        const lookupKey = BASE_WIDTH_MAP[resolution] ? resolution : upperRes;
+        const baseWidth = BASE_WIDTH_MAP[lookupKey] || BASE_WIDTH_MAP[resolution];
+
+        if (!baseWidth) {
+            console.warn(`[SharpImageAdapter] Resolución desconocida: ${resolution}. Sin redimensionar.`);
+            return imageBuffer;
+        }
+
+        const [rw, rh] = ASPECT_RATIOS[aspectRatio] || [1, 1];
+        const targetWidth  = baseWidth;
+        const targetHeight = Math.round(baseWidth * rh / rw);
+
+        console.log(`[SharpImageAdapter] Redimensionando a ${targetWidth}x${targetHeight} (res: ${resolution}, ratio: ${aspectRatio})`);
+
+        return sharp(imageBuffer)
+            .resize(targetWidth, targetHeight, {
+                fit: 'fill',        // Llena las dimensiones exactas
+                kernel: 'lanczos3', // Máxima calidad de escalado
+            })
+            .png({ compressionLevel: 0, effort: 1 }) // PNG sin comprimir = máx calidad
+            .toBuffer();
+    }
 }
 
 export default SharpImageAdapter;

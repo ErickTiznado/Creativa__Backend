@@ -86,6 +86,17 @@ if (methodToUse === "ai") {
       buffers.map(async (imageObj) => {
         let finalBuffer = imageObj.buffer;
 
+        // --- RESIZE: Gemini genera en resolución nativa. Escalamos al tamaño pedido. ---
+        if (this.imageProcessingPort && resolution) {
+          const aspectRatio = config?.imageConfig?.aspectRatio || '1:1';
+          finalBuffer = await this.imageProcessingPort.resizeToResolution(
+            finalBuffer,
+            resolution,
+            aspectRatio
+          );
+        }
+        // -------------------------------------------------------------------------
+
         if (methodToUse === "sharp" && this.imageProcessingPort) {
           console.log(`Aplicando marca de agua dinámica con Sharp (Logo: ${logoType})...`);
           

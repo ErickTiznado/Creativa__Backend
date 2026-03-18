@@ -55,7 +55,8 @@ class EditImageController {
         // Frontend may send these instead:
         assetId,
         maskImage,
-        logoType // <-- CAMBIO V2.0: Atrapamos el logoType
+        logoType,    // CAMBIO V2.0
+        resolution,  // Para resize post-generación
       } = req.body;
 
       // If frontend sends assetId instead of baseImageURL, look up the URL
@@ -111,7 +112,8 @@ class EditImageController {
         style,
         context,
         assetId: assetId || null,
-        logoType: logoType || 'Ninguno' // <-- CAMBIO V2.0: Lo mandamos al UseCase
+        logoType: logoType || 'Ninguno',
+        resolution: resolution || '1080x1080', // Para resize post-generación
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status, parent_asset_id }]

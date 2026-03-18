@@ -14,6 +14,7 @@ class ImageEditorRequest {
     style = null,
     context = null,
     assetId = null,
+    resolution = '1080x1080', // Para resize post-generación
   }) {
     this.baseImageURL = baseImageURL;
     this.maskImageURL = maskImageURL;
@@ -26,6 +27,7 @@ class ImageEditorRequest {
     this.style = style;
     this.context = context;
     this.assetId = assetId;
+    this.resolution = resolution;
     this.#validate();
   }
 

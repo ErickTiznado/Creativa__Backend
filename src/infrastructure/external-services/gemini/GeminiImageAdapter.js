@@ -75,19 +75,47 @@ class GeminiImageAdapter extends ImageGeneratorPort {
   // --- CAMBIO v2.0: Recibimos resolution como sexto parámetro ---
   async generateImages(prompt, config, numberOfImages, referenceImageURLs = null, referenceType = 'style', resolution = '1080x1080') {
     let requestContents = [{ text: prompt }];
-    let generationConfig = config || {};
 
-    // --- CAMBIO v2.0: Mapeo de resolución a aspectRatio de la IA ---
-    let aspectRatio = "1:1"; // Por defecto cuadrado (1080x1080)
+    // Fallback de aspectRatio derivado de la resolución
+    let fallbackAspectRatio = "1:1";
     if (resolution === "1080x1920") {
-      aspectRatio = "9:16"; // Formato vertical (Stories/Reels)
+      fallbackAspectRatio = "9:16";
     } else if (resolution === "1920x1080") {
-      aspectRatio = "16:9"; // Formato horizontal (YouTube/Web)
+      fallbackAspectRatio = "16:9";
     }
-    
-    // Le inyectamos el aspect ratio al config que va hacia la API
-    generationConfig.aspectRatio = aspectRatio;
-    // ----------------------------------------------------------------
+
+    // Priorizamos el aspectRatio que manda el frontend (independiente de la resolución).
+    // Si el frontend no manda uno, lo derivamos de la resolución como fallback.
+    const aspectRatio = config?.imageConfig?.aspectRatio || fallbackAspectRatio;
+
+    // Mapeamos el imageSize al formato que acepta la API de Gemini: "1K", "2K", "4K"
+    // El frontend puede mandar el valor directamente ("2K", "4K") o un string de resolución.
+    const rawImageSize = config?.imageConfig?.imageSize;
+    let imageSize = "1K"; // Default para resoluciones 1080p
+    if (rawImageSize) {
+      const normalized = String(rawImageSize).toUpperCase();
+      if (normalized === "4K" || normalized.includes("4K")) {
+        imageSize = "4K";
+      } else if (normalized === "2K" || normalized.includes("2K")) {
+        imageSize = "2K";
+      } else {
+        // Para cualquier otro valor (ej: "1080x1080"), usamos 1K
+        imageSize = "1K";
+      }
+    }
+
+    // Construimos el config limpio solo con los campos que Gemini acepta.
+    // IMPORTANTE: aspectRatio e imageSize van dentro de imageConfig, no en el nivel raíz.
+    const generationConfig = {
+      responseModalities: ["IMAGE"],
+      imageConfig: {
+        aspectRatio: aspectRatio,
+        imageSize: imageSize,
+      },
+    };
+
+
+
 
     // Si hay imágenes de referencia, las descargamos y preparamos
     if (referenceImageURLs) {
@@ -112,23 +140,28 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
 
     const data = {
-      model: "gemini-3-pro-image-preview", 
+      model: "gemini-3-pro-image-preview",
       contents: requestContents,
       config: generationConfig,
     };
 
-    if (!numberOfImages || numberOfImages === 1) {
-      const response = await genAI.models.generateContent(data);
 
-      return [this.#extractDataFromResponse(response)];
-    } else if (numberOfImages > 1) {
-      const responses = await Promise.all(
-        Array.from({ length: numberOfImages }, () =>
-          genAI.models.generateContent(data),
-        ),
-      );
-      const images = responses.map((r) => this.#extractDataFromResponse(r));
-      return images;
+
+    try {
+      if (!numberOfImages || numberOfImages === 1) {
+        const response = await genAI.models.generateContent(data);
+        return [this.#extractDataFromResponse(response)];
+      } else if (numberOfImages > 1) {
+        const responses = await Promise.all(
+          Array.from({ length: numberOfImages }, () =>
+            genAI.models.generateContent(data),
+          ),
+        );
+        const images = responses.map((r) => this.#extractDataFromResponse(r));
+        return images;
+      }
+    } catch (apiError) {
+      throw apiError;
     }
   }
 
@@ -151,10 +184,20 @@ class GeminiImageAdapter extends ImageGeneratorPort {
       imageUrls.map((url) => this.#downloadAndPrepareImage(url)),
     );
 
+    // Config limpio igual que en generateImages: aspectRatio de frontend o "1:1" por defecto.
+    // Evita INVALID_ARGUMENT por parámetros extra que Gemini no acepta.
+    const aspectRatio = config?.imageConfig?.aspectRatio || "1:1";
+    const editConfig = {
+      responseModalities: ["IMAGE"],
+      imageConfig: {
+        aspectRatio: aspectRatio,
+      },
+    };
+
     const data = {
       model: "gemini-3-pro-image-preview",
       contents: this.#prepareContent(prompt, images),
-      config: config,
+      config: editConfig,
     };
 
     const response = await genAI.models.generateContent(data);
