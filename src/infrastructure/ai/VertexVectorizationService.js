@@ -44,7 +44,12 @@ class VertexVectorizationService {
             instances: [instance],
         };
 
-        const [response] = await this.predictionClient.predict(request);
+        // 🚨 CORRECCIÓN: Le damos 60 segundos de paciencia a la conexión
+        const callOptions = {
+            timeout: 60000 
+        };
+
+        const [response] = await this.predictionClient.predict(request, callOptions);
         const predictions = response.predictions;
 
         if (!predictions || predictions.length === 0) {
@@ -58,6 +63,7 @@ class VertexVectorizationService {
         // Convertir a array de números
         return valuesProto.listValue.values.map((v) => Number(v.numberValue));
     }
+
     // --- Genera embedding para una consulta de búsqueda (RETRIEVAL_QUERY) ---
     async generateQueryEmbedding(text) {
         return this._generateEmbedding(text, "RETRIEVAL_QUERY");
