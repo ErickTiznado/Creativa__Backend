@@ -55,8 +55,9 @@ class EditImageController {
         // Frontend may send these instead:
         assetId,
         maskImage,
-        logoType,    // CAMBIO V2.0
-        resolution,  // Para resize post-generación
+        logoType,      // CAMBIO V2.0
+        resolution,    // Para resize post-generación
+        aspectRatio,   // Aspect ratio explícito del frontend
       } = req.body;
 
       // If frontend sends assetId instead of baseImageURL, look up the URL
@@ -101,6 +102,26 @@ class EditImageController {
         editConfig.imageConfig = imageConfig;
       }
 
+      // Normalizar aspectRatio: puede venir de varias formas según el frontend.
+      // El frontend manda { config: { aspectRatio: '9:16' } } como campo directo en config.
+      const resolvedAspectRatio =
+        aspectRatio ||              // campo directo en el body
+        imageConfig?.aspectRatio || // dentro de imageConfig separado
+        config?.aspectRatio ||      // ← ASÍ lo manda el frontend (config.aspectRatio)
+        config?.imageConfig?.aspectRatio || // anidado en imageConfig dentro de config
+        '1:1';
+
+      // Resolver resolución: el frontend no la manda, derivarla del aspectRatio
+      const resolvedResolution = resolution || '2K';
+
+      // Asegurar que también viaje dentro de editConfig.imageConfig para que Gemini lo reciba
+      if (resolvedAspectRatio && resolvedAspectRatio !== '1:1') {
+        editConfig.imageConfig = {
+          ...(editConfig.imageConfig || {}),
+          aspectRatio: resolvedAspectRatio,
+        };
+      }
+
       const rawResults = await this.editImagesUseCase.execute({
         baseImageURL,
         maskImageURL: maskImageURL || null,
@@ -113,7 +134,8 @@ class EditImageController {
         context,
         assetId: assetId || null,
         logoType: logoType || 'Ninguno',
-        resolution: resolution || '1080x1080', // Para resize post-generación
+        resolution: resolvedResolution,
+        aspectRatio: resolvedAspectRatio,
       });
 
       // Normalize for frontend: [{ id, img_url, prompt_used, campaign_id, status, parent_asset_id }]

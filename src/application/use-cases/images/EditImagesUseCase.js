@@ -9,7 +9,7 @@ class EditImagesUseCase {
     this.storagePort = storagePort;
     this.campaignAssetRepository = campaignAssetRepository;
     this.contextRetriever = contextRetriever;
-    this.imageProcessingPort = imageProcessingPort; 
+    this.imageProcessingPort = imageProcessingPort;
   }
 
   async execute(rawRequestData) {
@@ -26,10 +26,16 @@ class EditImagesUseCase {
       style,
       assetId,
       resolution, // Para resize post-generación
+      aspectRatio, // Aspect ratio explícito (ya resuelto en el controller)
     } = request;
 
     // --- CAMBIO V2.0: Lo extraemos directo de rawRequestData por si la entidad no lo tiene mapeado ---
     const logoType = rawRequestData.logoType || 'Ninguno';
+    // Si la entidad no mapea aspectRatio, tomarlo de rawRequestData como fallback
+    const resolvedAspectRatio =
+      rawRequestData.aspectRatio ||
+      config?.imageConfig?.aspectRatio ||
+      '1:1';
 
     let retrievedContext = null;
     if (this.contextRetriever) {
@@ -84,23 +90,22 @@ class EditImagesUseCase {
 
         // --- RESIZE: igual que en generación, escalamos al tamaño pedido ---
         if (this.imageProcessingPort && resolution) {
-          const aspectRatio = config?.imageConfig?.aspectRatio || '1:1';
           finalBuffer = await this.imageProcessingPort.resizeToResolution(
             finalBuffer,
             resolution,
-            aspectRatio
+            resolvedAspectRatio
           );
         }
         // ------------------------------------------------------------------
 
         // --- Aplicamos el logo dinámico si se seleccionó uno ---
         if (this.imageProcessingPort && logoType !== 'Ninguno') {
-            console.log(`Aplicando marca de agua dinámica en Edición con Sharp (Logo: ${logoType})...`);
-            finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(
-              finalBuffer,
-              logoType,
-              resolution || '1080x1080'
-            );
+          console.log(`Aplicando marca de agua dinámica en Edición con Sharp (Logo: ${logoType})...`);
+          finalBuffer = await this.imageProcessingPort.applyBrandWatermarkDynamic(
+            finalBuffer,
+            logoType,
+            resolution || '1080x1080'
+          );
         }
 
         const thumbnailBuffer = await sharp(finalBuffer)
