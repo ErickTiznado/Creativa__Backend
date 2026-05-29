@@ -1,6 +1,7 @@
 import ImageGeneratorPort from "../../../application/ports/ImageGeneratorPort.js";
 import genAI from "./genAiClient.js";
 import axios from "axios";
+import { PROMPT_CONFIG } from "../../../domain/services/prompt/promptConstants.js";
 
 class GeminiImageAdapter extends ImageGeneratorPort {
   #prepareContent(prompt, images = []) {
@@ -140,7 +141,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     }
 
     const data = {
-      model: "gemini-3-pro-image-preview",
+      model: PROMPT_CONFIG?.MODEL?.NAME || "gemini-3-pro-image-preview",
       contents: requestContents,
       config: generationConfig,
     };
@@ -195,7 +196,7 @@ class GeminiImageAdapter extends ImageGeneratorPort {
     };
 
     const data = {
-      model: "gemini-3-pro-image-preview",
+      model: PROMPT_CONFIG?.MODEL?.NAME || "gemini-3-pro-image-preview",
       contents: this.#prepareContent(prompt, images),
       config: editConfig,
     };
