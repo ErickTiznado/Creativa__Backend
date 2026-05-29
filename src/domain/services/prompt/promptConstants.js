@@ -15,10 +15,10 @@ export const PROMPT_CONFIG = {
 
   // Configuración del Modelo (Gemini 2.5 Pro)
   MODEL: {
-    NAME: "gemini-3-pro-image-preview",
+    NAME: "gemini-3-pro-image", 
     DEFAULT_ASPECT_RATIO: "16:9",
     MAX_OUTPUT_TOKENS: 12192,
-  },
+},
 
   // Lista simple de IDs de estilos permitidos
   STYLES: [
